@@ -16,8 +16,6 @@ struct Sprite
     {
     sf::Sprite sprite_;
 
-    Vector pos_;
-
     int   animation_;
     int   frame_;
 
@@ -29,7 +27,6 @@ struct Sprite
 
     //---------------------
     Sprite (const sf::Texture& texture,
-            Vector pos,
                 sf::Vector2i frameSize,
                 int  nFrames     /*= 1*/,
                 int  nAnimations /*= 1*/,
@@ -50,14 +47,12 @@ struct Sprite
 
 //{Sprite:::-------------------------------------------------------------------
 Sprite::Sprite (const sf::Texture& texture,
-                Vector pos,
-                    sf::Vector2i frameSize,
-                    int  nFrames,
-                    int  nAnimations,
-                     sf::RenderWindow* windowp) :
+                sf::Vector2i frameSize,
+                int  nFrames,
+                int  nAnimations,
+                    sf::RenderWindow* windowp) :
 
     sprite_ ( sf::Sprite (texture, sf::IntRect())),  //empty
-    pos_(pos),
                                  //     ^
     animation_(0),    //top            /|\ .
     frame_    (0),    //left            |
@@ -67,9 +62,7 @@ Sprite::Sprite (const sf::Texture& texture,
     nAnimations_ (nAnimations),
 
     windowp_(windowp)
-    {
-    sprite_.setPosition(pos);
-    }
+    {}
 
 //=============================================================================
 void Sprite::draw ()
@@ -108,22 +101,17 @@ int main()
     {
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
     sf::Texture t;
-    t.loadFromFile ("example.jpg");
+    t.loadFromFile ("sozdaem-2D-platformer-pri-pomoshi-Unreal-Engine-4-chast-1-igrovoi-personaj-dvijenie-3.png ");
 
-    Sprite s (t, Vector (400, 400), sf::Vector2i (128, 128), 8, 8, &win);
-
-    int time = 0;
-
-    while(!GetAsyncKeyState(VK_SPACE))
-        {
-        win.clear();
-        s.draw();
-
-        if (++time % 8 == 0) s.setAnimation ((time/8) % 8);
-
-        win.display();
-        Sleep(100);
-        }
+    Sprite s (t, sf::Vector2i (234
+    , 260), 16, 1, &win);
+        while(!GetAsyncKeyState(VK_SPACE))
+            {
+            win.clear();
+            s.draw();
+            win.display();
+            Sleep(100);
+            }
 
     }
 
