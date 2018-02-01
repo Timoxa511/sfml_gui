@@ -1,31 +1,37 @@
-//v0
-/*#include "ALib.h" */ #include <sfml/graphics.hpp>
+//v1
+#include "TXLib.h"
+//create WidgetMgr || SmartWidget : Widget witch will include array of  WidgetMgrs || SmartWidgets  for logic tree
+// to extract the work with sf events into new class from the window witch must work with window parametrs only
+//the extract class will send vector of click/release coords to top widgetMgr \
+                         send bool of window status to the window class\
+                        so the purpose is division
+// + last def prmtr in widget - WidgetMgr* || SmartWidget* parentwindow
+
+
 #include <windows.h>
 #include <assert.h>
+#include "ALib.h"
 
-//TODO DONT RETURN WITHOUT AN ANIMATION LIB
+//origin (pos_) is left top corner
 
 //{Defines---------------------------------------------------------------------
 
 #define WINDOW_ADDTYPEBUTTON__DEFINITION( type )                             \
                                                                              \
 void Window::add##type##Button (const std::string& name,                     \
-                                      sf::Sprite& sprite,                    \
-                                      Window& parentWindow,                  \
-                                const Vector& pos,                           \
-                                const Vector& size = Vector (0, 0))          \
+                                      AL::Sprite&  sprite,                   \
+                                const Vector&      size)                     \
     {                                                                        \
-    buttons_.push_back (new type##Button(name, sprite, *this, pos, size));   \
+    widgets_.push_back (new type##Button(name, sprite, *this,                \
+                                            sprite.getPosition(),  size ));  \
     }
 
 
 #define WINDOW_ADDTYPEBUTTON__PROTOTYPE( type )                              \
                                                                              \
 void add##type##Button (const std::string& name,                             \
-                              sf::Sprite& sprite,                            \
-                              Window& parentWindow,                          \
-                        const Vector& pos,                                   \
-                        const Vector& size);                                 \
+                              AL::Sprite&  sprite,                           \
+                        const Vector&      size);                            \
 //}
 //-----------------------------------------------------------------------------
 
@@ -34,47 +40,70 @@ void add##type##Button (const std::string& name,                             \
 typedef sf::Vector2f     Vector;
             struct Window;
 
-struct                      Button
+
+
+struct  Widget
     {
-    enum STATUS {RELEASED, PRESSED};
-
-
-    std::string name_;
-
-    sf::Sprite  sprite_;
+    std::string name_; //for stuff only
+    AL::Sprite  sprite_;
     Window&     parentWindow_;
 
     Vector      pos_;
     Vector      size_;
 
-    STATUS      status_;
+    //-------------------------
+    Widget (const std::string& name,
+                  AL::Sprite&  sprite,
+                  Window& parentWindow,
+            const Vector& pos,
+            const Vector& size);
+
+    virtual void serveClick (const Vector& ClickPos);
+     virtual void serveRelease () = 0;       //TODO /need optimization/ widget logically doesnt need such fn/ the idea is to keep objects in Window in many ars: widgets, buttons..
+    virtual void onClick ()    = 0;    //   O   I
+  //virtual void onMouse ()    = 0;    // L   G   C
+
+
+    virtual void draw ();
+            void setSpriteAnimation (int animation);
+            void addSpriteAnimation (iVector animationBeginingPos,
+                                     iVector frameSize,
+                                     iVector nFrames);
+
+
+    virtual bool mouseOnTheWidget (const Vector& mousePos);
+
+    };
+
+
+struct        Button : public Widget
+    {
+    enum STATUS {RELEASED, PRESSED};
+         STATUS status_;
 
     //-------------------------
 
     Button (const std::string& name,
-                  sf::Sprite&  sprite,
+                  AL::Sprite&  sprite,
                   Window& parentWindow,
             const Vector& pos,
             const Vector& size);
 
     virtual void serveClick (const Vector& ClickPos) = 0;
-    virtual void serveRelease ()                     = 0;
+    //virtual void serveRelease ()                     = 0;      because a temporary put it in Widget
 
     virtual void onClick ()                          = 0;
 
     virtual void update ()                           = 0;
-
-
-        virtual bool mouseOnTheWidget (const Vector& mousePos);
     };
 
-class SingleButton : public Button
+class               SingleButton : public Button
     {
 
     //--------------------------
     public:
     SingleButton (const std::string& name,
-                       sf::Sprite&  sprite,
+                       AL::Sprite&  sprite,
                        Window& parentWindow,
                   const Vector& pos,
                   const Vector& size = Vector (0, 0));
@@ -88,13 +117,13 @@ class SingleButton : public Button
     virtual void update () override;
     };
 
-class SwitchButton : public Button
+class               SwitchButton : public Button
     {
 
     //--------------------------
     public:
     SwitchButton (const std::string& name,
-                       sf::Sprite&  sprite,
+                       AL::Sprite&  sprite,
                        Window& parentWindow,
                   const Vector& pos,
                   const Vector& size = Vector (0, 0));
@@ -115,7 +144,7 @@ struct Window
 
     const std::string name_;
     sf::RenderWindow window_;
-    std::vector<Button*> buttons_;
+    std::vector<Widget*> widgets_;
 
     STATUS status_;
 
@@ -124,16 +153,18 @@ struct Window
     Window (const std::string& name, Vector size, Vector pos);
    ~Window ();
 
+    bool run ();
+
     bool checkEvents ();
     void serveClick (Vector ClickPos);
     void serveRelease();
 
-    void addNew (Button* button);
-    WINDOW_ADDTYPEBUTTON__PROTOTYPE (Single)
-    WINDOW_ADDTYPEBUTTON__PROTOTYPE (Switch)
+        void addNew (Widget* widget);
+        WINDOW_ADDTYPEBUTTON__PROTOTYPE (Single)
+        WINDOW_ADDTYPEBUTTON__PROTOTYPE (Switch)
 
 
-    void draw ();
+        void draw ();
     sf::RenderWindow& getWindow();
 
     };
@@ -205,7 +236,16 @@ Window::~Window()
 
 
 //=============================================================================
+bool Window::run ()
+    {
+    draw ();
 
+    return checkEvents ();
+    }
+
+
+
+//-----------------------------------------------------------------------------
 sf::RenderWindow& Window::getWindow()
     {
     return window_;
@@ -213,13 +253,14 @@ sf::RenderWindow& Window::getWindow()
 
 
 //-----------------------------------------------------------------------------
-void Window::addNew (Button* button)
+void Window::addNew (Widget* widget)
     {
-    buttons_.push_back (button);
+    widgets_.push_back (widget);
     }
 
 WINDOW_ADDTYPEBUTTON__DEFINITION (Single)
 WINDOW_ADDTYPEBUTTON__DEFINITION (Switch)
+
 
 
 //-----------------------------------------------------------------------------
@@ -273,8 +314,8 @@ void Window::serveClick(Vector ClickPos)
     {
     printf ("       click (%g, %g)\n", ClickPos.x, ClickPos.y);
 
-    for (auto& button : buttons_)
-        button->serveClick(ClickPos);
+    for (auto& widget : widgets_)
+        widget->serveClick(ClickPos);
 
     printf ("           ");
     }
@@ -285,8 +326,8 @@ void Window::serveClick(Vector ClickPos)
 void Window::serveRelease()
     {
 
-    for (auto& button : buttons_)
-        button->serveRelease();
+    for (auto& widget : widgets_)
+        widget->serveRelease();            //TODO only for buttons (dynamic_cast or var with identification of the class /defines/)
 
     printf ("           ");
     }
@@ -296,14 +337,15 @@ void Window::serveRelease()
 //-----------------------------------------------------------------------------
 void Window::draw ()
     {
+    window_.display ();
     window_.clear ();
-    for (auto& button : buttons_)
+
+    for (auto& widget : widgets_)
         {
-        //button->update();
-        window_.draw(button->sprite_);
-        if (GetAsyncKeyState (VK_SPACE)) DrawMasksForButtons (this);
+        widget->draw();
         }
-    window_.display();
+    //for objs?
+
     }
 
 
@@ -312,27 +354,86 @@ void Window::draw ()
 
 
 
-//{Button::--------------------------------------------------futurewiget-------
+
+//{Widget::--------------------------------------------------------------------
+
+Widget::Widget (const std::string& name,
+                AL::Sprite&  sprite,
+                Window& parentWindow,
+                const Vector& pos,
+                const Vector& size) :
+
+    name_ (name),
+    sprite_   (sprite),
+    parentWindow_ (parentWindow),
+    pos_  (pos),
+    size_ (size)
+    {
+    sprite.setPosition (pos);
+    if (size_ == Vector (0, 0))
+        size_ = (Vector) sprite_.getTextureSize();
+    }
+
+//=============================================================================
+
+//-----------------------------------------------------------------------------
+void Widget::serveClick (const Vector& clickPos)
+    {
+    if (mouseOnTheWidget (clickPos)) onClick();
+    }
+
+
+
+//----------------R-------W--------N-------------------------------------------
+//------------D-------A-------I--------G---------------------------------------
+void Widget::draw ()
+    {
+    sprite_ .draw ();
+    }
+
+
+
+//-----------------------------------------------------------------------------
+void Widget::setSpriteAnimation (int animation)
+    {
+    sprite_ .setAnimation (animation);
+    }
+
+
+
+//-----------------------------------------------------------------------------
+void Widget::addSpriteAnimation (iVector animationBeginingPos,
+                                 iVector frameSize,
+                                 iVector nFrames)
+    {
+    sprite_. addAnimation (animationBeginingPos, frameSize, nFrames);
+    }
+
+
+
+//-----------------------------------------------------------------------------
+bool Widget::mouseOnTheWidget (const Vector& mousePos)
+    {
+    return (pos_.x < mousePos.x && mousePos.x < pos_.x + size_.x &&
+            pos_.y < mousePos.y && mousePos.y < pos_.y + size_.y);
+    }
+
+//}
+//-----------------------------------------------------------------------------
+
+
+//{--------Button::------------------------------------------------------------
 
 Button::Button (const std::string& name,
-                      sf::Sprite&  sprite,
+                      AL::Sprite&  sprite,
                       Window& parentWindow,
                 const Vector& pos,
                 const Vector& size) :
 
-    name_         (name),
-    sprite_       (sprite),
-    parentWindow_ (parentWindow),
-    pos_          (pos),
-
-    size_         (size),
+    Widget (name, sprite, parentWindow, pos, size),
     status_       (RELEASED)
 
-    {
-    sprite_.setPosition (pos_);
-
-    if (size_ == Vector (0, 0))  size_ = (Vector) sprite_.getTexture()->getSize();
-    }
+    {}
 
 //=============================================================================
 
@@ -350,24 +451,17 @@ void Button::serveClick (const Vector& ClickPos)
     {}
 
 //-----------------------------------------------------------------------------
-void Button::serveRelease ()
-    {}
+//void Button::serveRelease ()
+ //   {}                            temporar
 
-//-----------------------------------------------------------------------------
-
-bool Button::mouseOnTheWidget (const Vector& mousePos)
-    {                                                                             //TODO widget
-    return (pos_.x < mousePos.x && mousePos.x < pos_.x + size_.x &&
-            pos_.y < mousePos.y && mousePos.y < pos_.y + size_.y);           //rect
-    }                                                                                 //!! !
 
 //}
 //-----------------------------------------------------------------------------
 
-//{--------SingleButton::------------------------------------------------------
+//{----------------SingleButton::----------------------------------------------
 
 SingleButton::SingleButton (const std::string& name,
-                                  sf::Sprite&  sprite,
+                                  AL::Sprite&  sprite,
                                   Window& parentWindow,
                             const Vector& pos,
                             const Vector& size) :
@@ -421,10 +515,10 @@ void SingleButton::serveRelease ()
 //}
 //-----------------------------------------------------------------------------
 
-//{--------SwitchButton::------------------------------------------------------
+//{----------------SwitchButton::----------------------------------------------
 
 SwitchButton::SwitchButton (const std::string& name,
-                                  sf::Sprite&  sprite,
+                                  AL::Sprite&  sprite,
                                   Window& parentWindow,
                             const Vector& pos,
                             const Vector& size) :
@@ -491,14 +585,15 @@ void SwitchButton::serveRelease ()
 //{Functions-------------------------------------------------------------------
 
 int main ()
-    {                                                                                   //TODO please notice me senpai (c) Button::pos_
+    {
     Window win ("test", Vector (1800, 1000), Vector (0, 0));
 
     sf::Texture texture;
     texture.loadFromFile("byablo4ko.bmp");
-    sf::Sprite sprite (texture, AllTexture (texture));
-
-    win.addSwitchButton ("red", sprite, win, Vector (300, 300));
+    AL::Sprite s (texture, Vector (500, 500), &win.getWindow());
+    s.addAnimation ();
+    s.setAnimation (0);
+    win.addSwitchButton ("red", s, (Vector) s.getTextureSize());
 
 
 
@@ -506,12 +601,11 @@ int main ()
 
     printf ("%10s", "");
 
-    while (1)
+    while (win.run())
         {
         printf ("\b%c", "-\\|/"[++t%4]);
 
-        if (!win.checkEvents()) break;
-        win.draw ();
+        //s.draw();
 
         Sleep (100);
         }
@@ -520,47 +614,8 @@ int main ()
     }
 
 
-//-----------------------------------------------------------------------------
-void DrawMasksForButtons (Window* window)
-    {
-    for (auto& button : window->buttons_)
-        {
-        sf::RectangleShape mask (button->size_);
-        mask.setPosition        (button->pos_);
-
-        mask.setFillColor (sf::Color ((int) button->pos_.x  % 200,
-                                      (int) button->pos_.y  % 200,
-                                      (int) button->size_.x % 200));
-
-        window->getWindow().draw (mask);
-        }
-    }
-
-
 
 //-----------------------------------------------------------------------------
-
-
-Vector operator / (const Vector& lvalue, int rvalue)
-    {
-    return Vector (lvalue.x / rvalue, lvalue.y / rvalue);
-    }
-
-const sf::IntRect AllTexture (const sf::Texture &tex)
-    {
-
-    auto size2u = tex.getSize();
-    Vector size2 (size2u);
-    return sf::IntRect (0, 0, size2.x, size2.y);
-    }
-
-const sf::IntRect The_Half_TextureRect (const sf::Texture &tex)
-    {
-
-    auto size2u = tex.getSize();
-    Vector size2 (size2u);
-    return sf::IntRect (0, 0, size2.x/2, size2.y);
-    }
 
 
 //}
@@ -574,12 +629,6 @@ const sf::IntRect The_Half_TextureRect (const sf::Texture &tex)
                      //   \/       \/
 //TODO virtual buttons: switch, single, timerbutton, hotkeybutton...                             banner like stbst?
 
-
-
-//TODO last default parametr int constructor class button : clickarea
-
-
-//TODO v size && v pos instead of clickarea
 
 
 

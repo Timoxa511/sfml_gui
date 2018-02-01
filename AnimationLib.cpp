@@ -1,6 +1,7 @@
 //ANIMATION LIB  v0     одинкаовое колво кадров во всех анимациях, одинаковый размер всех кадров,
 #include <sfml/graphics.hpp>
 #include <windows.h>
+#include "GUI.h"
 //namsp
 
 
@@ -106,22 +107,24 @@ void Sprite::setAnimation (int animation)
 
 int main()
     {
-    sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
+    Window win ("test", Vector (1000, 800),Vector (200, 200));
+
+
     sf::Texture t;
     t.loadFromFile ("example.jpg");
 
-    Sprite s (t, Vector (400, 400), sf::Vector2i (128, 128), 8, 8, &win);
+    Sprite s (t, Vector (400, 400), sf::Vector2i (128, 128), 8, 8, &win.getWindow());
 
     int time = 0;
 
-    while(!GetAsyncKeyState(VK_SPACE))
+    while(win.run())
         {
-        win.clear();
+
         s.draw();
 
         if (++time % 8 == 0) s.setAnimation ((time/8) % 8);
 
-        win.display();
+
         Sleep(100);
         }
 
@@ -130,7 +133,7 @@ int main()
 //-----------------------------------------------------------------------------
 
 
-Vector operator / (const Vector& lvalue, int rvalue)
+/*Vector operator / (const Vector& lvalue, int rvalue)
     {
     return Vector (lvalue.x / rvalue, lvalue.y / rvalue);
     }
@@ -151,7 +154,7 @@ const sf::IntRect The_Half_TextureRect (const sf::Texture &tex)
     return sf::IntRect (0, 0, size2.x/2, size2.y);
     }
 
-
+           */
 //}
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
