@@ -1,4 +1,4 @@
-//ANIMATION LIB  v1
+//ANIMATION LIB  vLast
 #include <sfml/graphics.hpp>
 #include <windows.h>
 #include  <vector>
@@ -7,54 +7,86 @@
 typedef sf::Vector2f     Vector;
 typedef sf::Vector2i    iVector;
 
+//{not-classes-----------------------------------------------------------------
+
+const sf::IntRect AllTexture (const sf::Texture &tex);
+
+
+//}
+//-----------------------------------------------------------------------------
+
 namespace AL
 {/*Classes functions and prototypes*/
 //{Prototypes------------------------------------------------------------------
+
+namespace Global
+{
+const int FLAGVAL = -100500;    //TODO improve sprite.draw() -> sprite.draw (Vector pos = Vector(Fl, Fl)) {if (pos == v (f, f) ...} ...
+}
 
 struct Animation
     {
 
     iVector currentFrame_;
 
-    iVector frameSize_;
+    iVector pixFrameSize_;
     iVector nFrames_;
-    iVector animationBeginingPos_;
+    iVector pixFrameOffset_;
 
     //---------------------
-    Animation (iVector animationBeginingPos,
-               iVector frameSize,
+    Animation (iVector pixFrameOffset,
+               iVector pixFrameSize,
                iVector nFrames);
+
+    sf::IntRect getCurrentFrame () const;
     void update ();
     };
 
 
 class Sprite
     {
+    std::string name_;
     sf::Sprite sprite_;
     Vector pos_;
     sf::RenderWindow* windowp_;
 
     std::vector <Animation> animations_;
-    int animation_;
+    int animationId_;
 
     //---------------------
     public:
-    Sprite (const sf::Texture& texture,
+    Sprite (std::string name);
+    Sprite (std::string name,
+            const sf::Texture& texture,
             Vector pos,
             sf::RenderWindow* windowp);
 
     void draw ();
 
-    void setPosition (const Vector& pos);
-    void setAnimation (int animation);
-    void addAnimation (iVector frameSize            = iVector (1, 1),
-                       iVector nFrames              = iVector (1, 1),
-                       iVector animationBeginingPos = iVector (0, 0)  );
+    void setPosition     (const Vector& pos);
+    void setTexture      (const sf::Texture& texture);
+    void setRenderWindow (sf::RenderWindow* windowp);
+    void setAnimationId  (int animationId);
 
 
-    iVector getTextureSize();
-     Vector getPosition();
+    void addAnimation (Animation animation);
+    void addAnimation (iVector frameSize,
+                       iVector nFrames,
+                       iVector pixFrameOffset);
+
+
+    sf::RenderWindow*  getWindowp     ();
+    const sf::Texture* getTexture     ();
+    Animation          getAnimation   (int animationId);
+    int                getAnimationId ();
+    Vector             getPosition    ();
     };
+
+namespace Global
+{
+Sprite DefaultSprite ("AJIJIO_ETO_TEXHUK_IIAshA?\nY HAC TYT TEXHUKA HE IIAshET!");
+sf::RenderWindow *RenderWindow = nullptr;
+}
 
 //}
 //-----------------------------------------------------------------------------
@@ -68,31 +100,58 @@ class Sprite
 
 
 //{Sprite::--------------------------------------------------------------------
-Sprite::Sprite (const sf::Texture& texture,
+Sprite::Sprite (std::string name,
+                const sf::Texture& texture,
                 Vector pos,
                 sf::RenderWindow* windowp) :
 
+    name_ (name),
     sprite_ ( sf::Sprite (texture, sf::IntRect()) ),  //empty
     pos_(pos),
-    windowp_(windowp)
+    windowp_(windowp),
+    animationId_ (0)
     {
-    sprite_.setPosition(pos);                                            //TODO +constructor {default animation}
+    sprite_.setPosition(pos);
     }
 
 
+//-----------------------------------------------------------------------------
+Sprite::Sprite (std::string name) :
+    name_ (name),
+    sprite_ (),
+    pos_ (0, 0),
+    windowp_ (nullptr),
+    animationId_ (0)
+    {}
 
 //=============================================================================
 void Sprite::draw ()
     {
-    Animation& animation = animations_.at(animation_);
-    sprite_.setTextureRect(    sf::IntRect (animation.currentFrame_.x * animation.frameSize_.x,
-                                            animation.currentFrame_.y * animation.frameSize_.y,
-                                                                        animation.frameSize_.x,
-                                                                        animation.frameSize_.y)   );
-    windowp_->draw(sprite_);
+    if (sprite_.getTexture())
+        {
+        if (animations_.size())
+            {
+            Animation& animation = animations_.at(animationId_);
 
-    animation.update();
+            sprite_.setTextureRect (animation.getCurrentFrame ());
+            animation.update();
+            }
+        else                                                                         //SOO AMAZING FN IT CALS ITSELF BUT WORKS
+            {
+            sprite_.setTextureRect ( AllTexture(*sprite_.getTexture()) );
+            }
+
+        windowp_->draw(sprite_);
+        }
+    else
+        {
+        setTexture  (*AL::Global::DefaultSprite.getTexture());
+        addAnimation (AL::Global::DefaultSprite.getAnimation(0));
+        setRenderWindow (AL::Global::RenderWindow);
+        draw();
+        }
     }
+
 
 
 //-----------------------------------------------------------------------------
@@ -103,34 +162,54 @@ void Sprite::setPosition (const Vector& pos)
     }
 
 
+//-----------------------------------------------------------------------------
+void Sprite::setTexture (const sf::Texture& texture)
+    {
+    sprite_.setTexture (texture);
+    }
+
 
 //-----------------------------------------------------------------------------
-void Sprite::setAnimation (int animation)
+void Sprite::setRenderWindow (sf::RenderWindow* windowp)
     {
-    animation_ = animation;
+    windowp_ = windowp;
+    }
+
+
+//-----------------------------------------------------------------------------
+void Sprite::setAnimationId (int animationId)
+    {
+    animationId_ = animationId;
     }
 
 
 
+
 //-----------------------------------------------------------------------------
-void Sprite::addAnimation (iVector frameSize,
+void Sprite::addAnimation (Animation animation)
+    {
+    animations_.push_back (animation);
+    }
+
+
+//-----------------------------------------------------------------------------
+void Sprite::addAnimation (iVector pixFrameSize,
                            iVector nFrames,
-                           iVector animationBeginingPos)
+                           iVector pixFrameOffset)
     {
-    animations_.push_back (Animation ( (frameSize == iVector (1, 1) )? getTextureSize() : frameSize,
-                                        nFrames,
-                                        animationBeginingPos) );
+    animations_.push_back (Animation (pixFrameSize,
+                                      nFrames,
+                                      pixFrameOffset) );
     }
+
 
 
 
 //-----------------------------------------------------------------------------
-iVector Sprite::getTextureSize ()
+const sf::Texture* Sprite::getTexture ()
     {
-    return (iVector) sprite_.getTexture()->getSize();
+    return sprite_.getTexture();
     }
-
-
 
 
 //-----------------------------------------------------------------------------
@@ -140,20 +219,40 @@ Vector Sprite::getPosition ()
     }
 
 
+//-----------------------------------------------------------------------------
+sf::RenderWindow* Sprite::getWindowp ()
+    {
+    return windowp_;
+    }
+
+
+//-----------------------------------------------------------------------------
+int Sprite::getAnimationId ()
+    {
+    return animationId_;
+    }
+
+
+//-----------------------------------------------------------------------------
+Animation Sprite::getAnimation (int animationId)
+    {
+    return animations_.at(animationId);
+    }
+
 
 //}
 //-----------------------------------------------------------------------------
 
 
 //{Animation::-----------------------------------------------------------------
-Animation::Animation (iVector frameSize,
+Animation::Animation (iVector pixFrameSize,
                       iVector nFrames,
-                      iVector animationBeginingPos) :
+                      iVector pixFrameOffset) :
     currentFrame_ ( iVector (0, 0) ),      //1st frame 1st row /cap/
 
-    frameSize_ (frameSize),
+    pixFrameSize_ (pixFrameSize),
     nFrames_ (nFrames),
-    animationBeginingPos_ (animationBeginingPos)
+    pixFrameOffset_ (pixFrameOffset)
     {
 
     }
@@ -169,7 +268,14 @@ void Animation::update ()
     }
 
 
-
+//-----------------------------------------------------------------------------
+sf::IntRect Animation::getCurrentFrame () const
+    {
+    return sf::IntRect (currentFrame_.x * pixFrameSize_.x,
+                        currentFrame_.y * pixFrameSize_.y,
+                                          pixFrameSize_.x,
+                                          pixFrameSize_.y);
+    }
 //}
 //-----------------------------------------------------------------------------
 
@@ -180,32 +286,59 @@ void Animation::update ()
 
 //{Functions-------------------------------------------------------------------
 
-/*int main()
+int GUImain ();
+
+int main()
     {
+    sf::Texture defTexture;
+    bool    load_succeeded = defTexture.loadFromFile("defTexture.jpg");
+    assert (load_succeeded);
+
+    AL::Global::DefaultSprite.setTexture (defTexture);
+    AL::Global::DefaultSprite.setRenderWindow(AL::Global::RenderWindow);
+    AL::Global::DefaultSprite.addAnimation (iVector (defTexture.getSize().x/2, defTexture.getSize().y),
+                                            iVector (1, 2),
+                                            iVector (0, 0) );
+
+    //GUImain ();
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
+    AL::Global::RenderWindow = &win;
     sf::Texture t;
     t.loadFromFile ("example.jpg");
 
-    Sprite s (t, Vector (400, 400), &win);
-    s.addAnimation(iVector (0, 0), iVector (128, 128), iVector (8, 8));
-    s.setAnimation(0);
-    int time = 0;
+    AL::Sprite s ("imya", t, Vector (400, 400), &win);
+    s.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
 
     while(!GetAsyncKeyState(VK_SPACE))
         {
         win.clear();
         s.draw();
 
-        if (++time % 8 == 0) s.setAnimation ((time/8) % 8);
-
         win.display();
-        Sleep(100);
+        Sleep(20);
         }
 
-    }      */
+    }
+#define main GUImain
 
+ /* example-test
+    sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
+    sf::Texture t;
+    t.loadFromFile ("example.jpg");
+
+    AL::Sprite s ("imya", t, Vector (400, 400), &win);
+    s.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
+
+    while(!GetAsyncKeyState(VK_SPACE))
+        {
+        win.clear();
+        s.draw();
+
+        win.display();
+        Sleep(20);
+        }
+       */
 //-----------------------------------------------------------------------------
-
 
 Vector operator / (const Vector& lvalue, int rvalue)
     {
@@ -214,23 +347,43 @@ Vector operator / (const Vector& lvalue, int rvalue)
 
 const sf::IntRect AllTexture (const sf::Texture &tex)
     {
-
     auto size2u = tex.getSize();
-    Vector size2 (size2u);
+    Vector  size2 (size2u);
     return sf::IntRect (0, 0, size2.x, size2.y);
     }
 
-const sf::IntRect The_Half_TextureRect (const sf::Texture &tex)
-    {
 
-    auto size2u = tex.getSize();
-    Vector size2 (size2u);
-    return sf::IntRect (0, 0, size2.x/2, size2.y);
+Vector& operator /= (Vector& lvalue, const Vector& rvalue)
+    {
+    lvalue.x /= rvalue.x;
+    lvalue.y /= rvalue.y;
+
+    return lvalue;
+    }
+
+Vector operator / (const Vector& lvalue, const Vector& rvalue)
+    {
+    Vector ret = lvalue;
+    ret /= rvalue;
+    return ret;
     }
 
 
+bool operator == (const Vector& lvalue, const Vector& rvalue)
+    {
+    return (lvalue.x == rvalue.x && lvalue.y == rvalue.y);
+    }
 //}
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
+
+
+
+
+
+//TODO  многоанимационный спрайт, то бишь массив спрайтов => слои, добавить слой()  добавить анимацию на слой()   update()/пересчитывать относительные координаты спрайтов/
+                                                                                //
+
+
 
