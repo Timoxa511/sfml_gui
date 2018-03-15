@@ -127,7 +127,8 @@ Sprite::Sprite (std::string name) :
 //=============================================================================
 void Sprite::draw ()
     {
-    if (sprite_.getTexture())
+
+    if (sprite_.getTexture()->getSize() != sf::Vector2u (0, 0))
         {
         if (animations_.size())
             {
@@ -147,6 +148,7 @@ void Sprite::draw ()
         {
         setTexture  (*AL::Global::DefaultSprite.getTexture());
         addAnimation (AL::Global::DefaultSprite.getAnimation(0));
+        setAnimationId (animations_.size() - 1);
         setRenderWindow (AL::Global::RenderWindow);
         draw();
         }
@@ -297,34 +299,21 @@ int main()
     AL::Global::DefaultSprite.setTexture (defTexture);
     AL::Global::DefaultSprite.setRenderWindow(AL::Global::RenderWindow);
     AL::Global::DefaultSprite.addAnimation (iVector (defTexture.getSize().x/2, defTexture.getSize().y),
-                                            iVector (1, 2),
+                                            iVector (2, 1),
                                             iVector (0, 0) );
 
-    //GUImain ();
-    sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
-    AL::Global::RenderWindow = &win;
-    sf::Texture t;
-    t.loadFromFile ("example.jpg");
 
-    AL::Sprite s ("imya", t, Vector (400, 400), &win);
-    s.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
-
-    while(!GetAsyncKeyState(VK_SPACE))
-        {
-        win.clear();
-        s.draw();
-
-        win.display();
-        Sleep(20);
-        }
+    GUImain ();
 
     }
 #define main GUImain
 
  /* example-test
+
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
+    AL::Global::RenderWindow = &win;
     sf::Texture t;
-    t.loadFromFile ("example.jpg");
+    t.loadFromFile ("eïxample.jpg");
 
     AL::Sprite s ("imya", t, Vector (400, 400), &win);
     s.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
@@ -337,6 +326,7 @@ int main()
         win.display();
         Sleep(20);
         }
+
        */
 //-----------------------------------------------------------------------------
 

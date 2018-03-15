@@ -2,8 +2,8 @@
 #include "TXLib.h"
 //TODO     create WidgetMgr || SmartWidget : Widget witch will include array of  WidgetMgrs || SmartWidgets  for logic tree
 //TODO     to extract the work with sf events into new class from the window witch must work with window parametrs only
-//TODO     the extract class will send vector of click/release coords to top widgetMgr \
-  //TODO                           send bool of window status to the window class\
+//TODO     the extract class will send vector of click/release coords to top widgetMgr
+  //TODO                           send bool of window status to the window class
  //TODO                           so the purpose is division
 //TODO     + last def prmtr in widget - WidgetMgr* || SmartWidget* parentwindow
 
@@ -314,6 +314,8 @@ Widget::Widget (const std::string& name,
     {
     if (size_ == Vector (AL::Global::FLAGVAL, AL::Global::FLAGVAL))
         size_ = (Vector) sprite_.getTexture()->getSize();
+
+    assert (size_.x > 0 && size_.y > 0);   //если размер виджета не пришел ни из параметров конструктора, ни из размера текстуры, то земля тебе пухом братишка
     }
 
 //=============================================================================
@@ -537,7 +539,7 @@ int main ()
             texture.loadFromFile("byablo4ko.bmp");
 
             sf::Texture tex;
-            tex.loadFromFile("example.jpg");
+            tex.loadFromFile("exasmple.jpg");
 
     GroupWidget top;
     EventMgr eveMgr (&top, &renderWindow);
