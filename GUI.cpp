@@ -1,4 +1,4 @@
-//v1
+//v1            
 #include "TXLib.h"
 //TODO     create WidgetMgr || SmartWidget : Widget witch will include array of  WidgetMgrs || SmartWidgets  for logic tree
 //TODO     to extract the work with sf events into new class from the window witch must work with window parametrs only
@@ -539,7 +539,7 @@ int main ()
             texture.loadFromFile("byablo4ko.bmp");
 
             sf::Texture tex;
-            tex.loadFromFile("exasmple.jpg");
+            tex.loadFromFile("example.jpg");
 
     GroupWidget top;
     EventMgr eveMgr (&top, &renderWindow);

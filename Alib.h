@@ -1,5 +1,6 @@
-//ANIMATION LIB  vLast
+//ANIMATION LIB  vLast 
 #include <sfml/graphics.hpp>
+#include "AlibOperators.hpp"
 #include <windows.h>
 #include  <vector>
 
@@ -7,13 +8,6 @@
 typedef sf::Vector2f     Vector;
 typedef sf::Vector2i    iVector;
 
-//{not-classes-----------------------------------------------------------------
-
-const sf::IntRect AllTexture (const sf::Texture &tex);
-
-
-//}
-//-----------------------------------------------------------------------------
 
 namespace AL
 {/*Classes functions and prototypes*/
@@ -55,11 +49,12 @@ class Sprite
 
     //---------------------
     public:
-    Sprite (std::string name);
-    Sprite (std::string name,
-            const sf::Texture& texture,
-            Vector pos,
-            sf::RenderWindow* windowp);
+             Sprite (const Sprite& sprite);
+    explicit Sprite (std::string name);
+             Sprite (std::string name,
+                     const sf::Texture& texture,
+                     Vector pos,
+                     sf::RenderWindow* windowp);
 
     void draw ();
 
@@ -80,6 +75,9 @@ class Sprite
     Animation          getAnimation   (int animationId);
     int                getAnimationId ();
     Vector             getPosition    ();
+
+
+    Sprite& operator = (const Sprite& that) = delete;
     };
 
 namespace Global
@@ -109,6 +107,7 @@ Sprite::Sprite (std::string name,
     sprite_ ( sf::Sprite (texture, sf::IntRect()) ),  //empty
     pos_(pos),
     windowp_(windowp),
+    animations_ (),
     animationId_ (0)
     {
     sprite_.setPosition(pos);
@@ -121,7 +120,18 @@ Sprite::Sprite (std::string name) :
     sprite_ (),
     pos_ (0, 0),
     windowp_ (nullptr),
+    animations_ (),
     animationId_ (0)
+    {}
+
+//-----------------------------------------------------------------------------
+Sprite::Sprite (const Sprite& sprite) :
+    name_        (sprite.name_),
+    sprite_      (sprite.sprite_),
+    pos_         (sprite.pos_),
+    windowp_     (sprite.windowp_),
+    animations_  (sprite.animations_),
+    animationId_ (sprite.animationId_)
     {}
 
 //=============================================================================
@@ -146,10 +156,10 @@ void Sprite::draw ()
         }
     else
         {
-        setTexture  (*AL::Global::DefaultSprite.getTexture());
         addAnimation (AL::Global::DefaultSprite.getAnimation(0));
-        setAnimationId (animations_.size() - 1);
+        setAnimationId (int (animations_.size() - 1));
         setRenderWindow (AL::Global::RenderWindow);
+        setTexture  (*AL::Global::DefaultSprite.getTexture());
         draw();
         }
     }
@@ -288,8 +298,8 @@ sf::IntRect Animation::getCurrentFrame () const
 
 //{Functions-------------------------------------------------------------------
 
-int GUImain ();
 
+int UserMain();
 int main()
     {
     sf::Texture defTexture;
@@ -303,12 +313,17 @@ int main()
                                             iVector (0, 0) );
 
 
-    GUImain ();
-
+    UserMain();
     }
-#define main GUImain
+#define main UserMain
 
- /* example-test
+
+//}
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+/* example-test----------------------------------------------------------------
 
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
     AL::Global::RenderWindow = &win;
@@ -330,50 +345,10 @@ int main()
        */
 //-----------------------------------------------------------------------------
 
-Vector operator / (const Vector& lvalue, int rvalue)
-    {
-    return Vector (lvalue.x / rvalue, lvalue.y / rvalue);
-    }
+//TODO  многоанимационный спрайт, то бишь массив спрайтов => слои, добавить слой()
+        //добавить анимацию на слой()
+        //update()/пересчитывать относительные координаты спрайтов/
 
-const sf::IntRect AllTexture (const sf::Texture &tex)
-    {
-    auto size2u = tex.getSize();
-    Vector  size2 (size2u);
-    return sf::IntRect (0, 0, size2.x, size2.y);
-    }
-
-
-Vector& operator /= (Vector& lvalue, const Vector& rvalue)
-    {
-    lvalue.x /= rvalue.x;
-    lvalue.y /= rvalue.y;
-
-    return lvalue;
-    }
-
-Vector operator / (const Vector& lvalue, const Vector& rvalue)
-    {
-    Vector ret = lvalue;
-    ret /= rvalue;
-    return ret;
-    }
-
-
-bool operator == (const Vector& lvalue, const Vector& rvalue)
-    {
-    return (lvalue.x == rvalue.x && lvalue.y == rvalue.y);
-    }
-//}
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-
-
-
-
-
-//TODO  многоанимационный спрайт, то бишь массив спрайтов => слои, добавить слой()  добавить анимацию на слой()   update()/пересчитывать относительные координаты спрайтов/
-                                                                                //
 
 
 
