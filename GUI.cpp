@@ -1,13 +1,10 @@
-//v1            
+//v1
 #include "TXLib.h"
-//TODO     create WidgetMgr || SmartWidget : Widget witch will include array of  WidgetMgrs || SmartWidgets  for logic tree
-//TODO     to extract the work with sf events into new class from the window witch must work with window parametrs only
-//TODO     the extract class will send vector of click/release coords to top widgetMgr
-  //TODO                           send bool of window status to the window class
- //TODO                           so the purpose is division
-//TODO     + last def prmtr in widget - WidgetMgr* || SmartWidget* parentwindow
 
 //TODO    local cords according to upper/parent widgetWidget (const std::string& name,
+
+//DONE: wrapped sfEvents: closed, resized and mouse work,
+//clickable and releasable widgets especially buttons,
 
 
 #include <windows.h>
@@ -32,7 +29,7 @@ namespace Global                                                                
     const Vector ScreenSize (GetSystemMetrics (SM_CXSCREEN), GetSystemMetrics (SM_CYSCREEN));               //
     }
 
-        struct GroupWidget;
+struct GroupWidget;
 
 
 struct  Widget
@@ -160,7 +157,16 @@ struct EventMgr
     };
 
 
-
+struct AppWindow
+    {
+    sf::RenderWindow* renderWindow_;
+    GroupWidget mainWidget_;
+    EventMgr eventMgr_;
+    //------------------
+    AppWindow (sf::RenderWindow* renderWindow);
+    bool run ();
+    void add (Widget* widget);
+    };
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -185,6 +191,33 @@ Vector operator / (const Vector& lvalue, int rvalue);
 
 
 //{Classes---------------------------------------------------------------------
+
+
+//{AppWindow::-----------------------------------------------------------------
+AppWindow::AppWindow (sf::RenderWindow* renderWindow) :
+    renderWindow_ (renderWindow),
+    mainWidget_ (),
+    eventMgr_ (&mainWidget_, renderWindow)
+    {
+    AL::Global::RenderWindow = renderWindow; //important for Alib.h
+    }
+
+//=============================================================================
+
+void AppWindow::add (Widget* widget)
+    {
+    mainWidget_.add (widget);
+    }
+
+//-----------------------------------------------------------------------------
+bool AppWindow::run ()
+    {
+    return eventMgr_.run();
+    }
+
+
+//}
+//-----------------------------------------------------------------------------
 
 
 
@@ -330,6 +363,7 @@ void Widget::setParentWidget(GroupWidget* parentWidget)
 void Widget::Resize  (const Vector& newSize)
     {
     //help yourself, users
+    //TODO some behaviors to window resizing, mean unproportional sprite scaling
     }
 
 
@@ -403,6 +437,7 @@ void GroupWidget::Resize (const Vector& newSize)
 //-----------------------------------------------------------------------------
 void GroupWidget::add (Widget* widget)
     {
+    widget->setParentWidget (this);
     widgets_.push_back(widget);
     }
 
@@ -530,7 +565,36 @@ void SwitchButton::Release (const Vector& releasePos)
 
 int main ()
     {
-    sf::RenderWindow renderWindow (sf::VideoMode (Global::OriginalWinSize.x, Global::OriginalWinSize.y), "window");
+    sf::RenderWindow renderWindow (sf::VideoMode (Global::OriginalWinSize.x, Global::OriginalWinSize.y), "win");
+    AppWindow win (&renderWindow);
+
+            sf::Texture texture;
+            texture.loadFromFile("byablo4ko.bmp");
+
+            sf::Texture tex;
+            tex.loadFromFile("example.jpg");
+
+            AL::Sprite s2 ("main::s2", tex, Vector (0, 0), &renderWindow);
+            s2.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
+
+            SwitchButton butt ("Button",
+                                AL::Sprite ("main::s", texture, Vector (0, 0), &renderWindow),
+                                Vector (400, 400));
+            SwitchButton but  ("Button2",
+                                s2,
+                                Vector (600, 600));
+
+            win.add (&butt);
+            win.add (&but);
+
+    while (win.run())
+        {
+        Sleep (50);
+        }
+
+    }
+
+/*sf::RenderWindow renderWindow (sf::VideoMode (Global::OriginalWinSize.x, Global::OriginalWinSize.y), "window");
 
 
     AL::Global::RenderWindow = &renderWindow; //important for Alib.h
@@ -550,9 +614,9 @@ int main ()
             SwitchButton butt ("Button",
                                 AL::Sprite ("main::s", texture, Vector (0, 0), &renderWindow),
                                 Vector (400, 400));
-            SwitchButton but ("Button2",
-                               s2,
-                               Vector (600, 600));
+            SwitchButton but  ("Button2",
+                                s2,
+                                Vector (600, 600));
 
             top.add (&butt);
             top.add (&but);
@@ -561,11 +625,7 @@ int main ()
         {
         Sleep (50);
         }
-
-    }
-
-
-
+         */
 //-----------------------------------------------------------------------------
 
 
@@ -576,9 +636,6 @@ int main ()
 
 
 //TODOTODOTODO Engine {engmgr, toplvl, renderwindow}
-                     //     /        /
-                     //   \/       \/
-//TODO virtual buttons: switch, single, timerbutton, hotkeybutton...                             banner like stbst?
 
 //TODO    draggable widget; beginDrag endDrag; while on drag probably draw widget sprite in moue pos; (like in wind)
 

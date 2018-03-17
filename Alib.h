@@ -8,10 +8,6 @@ namespace AL
 {/*Classes functions and prototypes*/
 //{Prototypes------------------------------------------------------------------
 
-namespace Global
-{
-const int FLAGVAL = -100500;    //TODO improve sprite.draw() -> sprite.draw (Vector pos = Vector(Fl, Fl)) {if (pos == v (f, f) ...} ...
-}
 
 struct Animation
     {
@@ -75,11 +71,14 @@ class Sprite
     Sprite& operator = (const Sprite& that) = delete;
     };
 
+
 namespace Global
 {
+const int FLAGVAL = -100500;    //TODO improve sprite.draw() -> sprite.draw (Vector pos = Vector(Fl, Fl)) {if (pos == v (f, f) ...} ...
 Sprite DefaultSprite ("AJIJIO_ETO_TEXHUK_IIAshA?\nY HAC TYT TEXHUKA HE IIAshET!");
 sf::RenderWindow *RenderWindow = nullptr;
 }
+
 
 //}
 //-----------------------------------------------------------------------------
@@ -293,6 +292,28 @@ sf::IntRect Animation::getCurrentFrame () const
 
 //{Functions-------------------------------------------------------------------
 
+void ExampleTest ()
+    {
+    sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
+    AL::Global::RenderWindow = &win;
+    sf::Texture t;
+    t.loadFromFile ("example.jpg");
+
+    AL::Sprite s ("imya", t, Vector (400, 400), &win);
+    s.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
+
+    while(!GetAsyncKeyState(VK_SPACE))
+        {
+        win.clear();
+        s.draw();
+
+        win.display();
+        Sleep(20);
+        }
+
+    }
+
+//-----------------------------------------------------------------------------
 
 int UserMain();
 int main()
@@ -307,7 +328,7 @@ int main()
                                             iVector (2, 1),
                                             iVector (0, 0) );
 
-
+    //ExampleTest ();
     UserMain();
     }
 #define main UserMain
@@ -318,27 +339,6 @@ int main()
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-/* example-test----------------------------------------------------------------
-
-    sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
-    AL::Global::RenderWindow = &win;
-    sf::Texture t;
-    t.loadFromFile ("eпxample.jpg");
-
-    AL::Sprite s ("imya", t, Vector (400, 400), &win);
-    s.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
-
-    while(!GetAsyncKeyState(VK_SPACE))
-        {
-        win.clear();
-        s.draw();
-
-        win.display();
-        Sleep(20);
-        }
-
-       */
-//-----------------------------------------------------------------------------
 
 //TODO  многоанимационный спрайт, то бишь массив спрайтов => слои, добавить слой()
         //добавить анимацию на слой()
