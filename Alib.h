@@ -1,13 +1,8 @@
-//ANIMATION LIB  vLast 
+//ANIMATION LIB  vLast
 #include <sfml/graphics.hpp>
 #include "AlibOperators.hpp"
 #include <windows.h>
 #include  <vector>
-
-
-typedef sf::Vector2f     Vector;
-typedef sf::Vector2i    iVector;
-
 
 namespace AL
 {/*Classes functions and prototypes*/
