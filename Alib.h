@@ -4,6 +4,8 @@
 #include <windows.h>
 #include  <vector>
 
+#define DEBUG
+
 namespace AL
 {/*Classes functions and prototypes*/
 //{Prototypes------------------------------------------------------------------
@@ -28,7 +30,28 @@ struct Animation
     };
 
 
-class Sprite
+struct ISprite
+    {
+
+    //---------------------
+    virtual void draw () = 0;
+
+    virtual void setPosition     (const Vector& pos) = 0;
+    virtual void setTexture      (const sf::Texture& texture) = 0;
+    virtual void setRenderWindow (sf::RenderWindow* windowp) = 0;
+
+    virtual sf::RenderWindow*  getWindowp     () = 0;
+    virtual const sf::Texture* getTexture     () = 0;
+    virtual Vector             getPosition    () = 0;
+    };
+
+
+/*class LayerSprite
+    {
+
+    }  */
+
+class Sprite : public ISprite
     {
     std::string name_;
     sf::Sprite sprite_;
@@ -47,29 +70,30 @@ class Sprite
                      Vector pos,
                      sf::RenderWindow* windowp);
 
-    void draw ();
+    virtual void draw ();
 
-    void setPosition     (const Vector& pos);
-    void setTexture      (const sf::Texture& texture);
-    void setRenderWindow (sf::RenderWindow* windowp);
-    void setAnimationId  (int animationId);
-
-
-    void addAnimation (Animation animation);
-    void addAnimation (iVector frameSize,
-                       iVector nFrames,
-                       iVector pixFrameOffset);
+    virtual void setPosition     (const Vector& pos)          override;
+    virtual void setTexture      (const sf::Texture& texture) override;
+    virtual void setRenderWindow (sf::RenderWindow* windowp)  override;
+            void setAnimationId  (int animationId);
 
 
-    sf::RenderWindow*  getWindowp     ();
-    const sf::Texture* getTexture     ();
-    Animation          getAnimation   (int animationId);
-    int                getAnimationId ();
-    Vector             getPosition    ();
+            void addAnimation (Animation animation);
+            void addAnimation (iVector frameSize,
+                               iVector nFrames,
+                               iVector pixFrameOffset);
+
+
+    virtual sf::RenderWindow*  getWindowp     ()  override;
+    virtual const sf::Texture* getTexture     ()  override;
+    virtual Vector             getPosition    ()  override;
+            int                getAnimationId ();
+            Animation          getAnimation   (int animationId);
 
 
     Sprite& operator = (const Sprite& that) = delete;
     };
+
 
 
 namespace Global
@@ -327,9 +351,12 @@ int main()
     AL::Global::DefaultSprite.addAnimation (iVector (defTexture.getSize().x/2, defTexture.getSize().y),
                                             iVector (2, 1),
                                             iVector (0, 0) );
-
-    //ExampleTest ();
+    #ifdef DEBUG
+    ExampleTest();
+    #else
     UserMain();
+    #endif
+
     }
 #define main UserMain
 

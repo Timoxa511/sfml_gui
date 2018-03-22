@@ -637,6 +637,6 @@ int main ()
 
 //TODOTODOTODO Engine {engmgr, toplvl, renderwindow}
 
-//TODO    draggable widget; beginDrag endDrag; while on drag probably draw widget sprite in moue pos; (like in wind)
+//TODO    draggable : widget; beginDrag endDrag; while on drag probably draw widget sprite in moue pos; (like in wind)
 
 
