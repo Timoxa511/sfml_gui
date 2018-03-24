@@ -30,7 +30,7 @@ struct Animation
     };
 
 
-struct ISprite
+struct    ISprite
     {
 
     //---------------------
@@ -46,12 +46,7 @@ struct ISprite
     };
 
 
-/*class LayerSprite
-    {
-
-    }  */
-
-class Sprite : public ISprite
+class      Sprite : public ISprite
     {
     std::string name_;
     sf::Sprite sprite_;
@@ -70,7 +65,7 @@ class Sprite : public ISprite
                      Vector pos,
                      sf::RenderWindow* windowp);
 
-    virtual void draw ();
+    virtual void draw () override;
 
     virtual void setPosition     (const Vector& pos)          override;
     virtual void setTexture      (const sf::Texture& texture) override;
@@ -95,6 +90,42 @@ class Sprite : public ISprite
     };
 
 
+class LayerSprite : public ISprite
+    {
+    std::string name_;
+    Vector pos_;
+    sf::RenderWindow* windowp_;
+
+    std::vector <Sprite> layers_;
+    //-------------------
+    public:
+             LayerSprite (const LayerSprite& sprite);
+    explicit LayerSprite (std::string name);
+             LayerSprite (std::string name,
+                          const sf::Texture& texture,
+                          Vector pos,
+                          sf::RenderWindow* windowp);
+
+    virtual void draw () override;
+
+    virtual void setPosition     (const Vector& pos)          override;
+    virtual void setTexture      (const sf::Texture& texture) override;
+    virtual void setRenderWindow (sf::RenderWindow* windowp)  override;
+
+    virtual sf::RenderWindow*  getWindowp     ()              override;
+    virtual const sf::Texture* getTexture     ()              override;
+    virtual Vector             getPosition    ()              override;
+
+        private::
+            void deleteLayers();  //itl caus trablz when u try to create layers after deleting it as will be no tex
+        public::
+            void addLayer (AL::Sprite layer);
+            AL::Sprite* getLayer ();
+
+    LayerSprite& operator = (const Sprite& that) = delete;
+    };
+
+
 
 namespace Global
 {
@@ -107,12 +138,47 @@ sf::RenderWindow *RenderWindow = nullptr;
 //}
 //-----------------------------------------------------------------------------
 
-
 //=======================================================================================
 
 
 //{Classes---------------------------------------------------------------------
 
+
+
+//{Animation::-----------------------------------------------------------------
+Animation::Animation (iVector pixFrameSize,
+                      iVector nFrames,
+                      iVector pixFrameOffset) :
+    currentFrame_ ( iVector (0, 0) ),      //1st frame 1st row /cap/
+
+    pixFrameSize_ (pixFrameSize),
+    nFrames_ (nFrames),
+    pixFrameOffset_ (pixFrameOffset)
+    {
+
+    }
+
+
+//=============================================================================
+void Animation::update ()
+    {
+    currentFrame_.x++;
+                                       //плюс тот факт, что это так или не так
+    currentFrame_.y = (currentFrame_.y + (currentFrame_.x >= nFrames_.x)) % nFrames_.y;
+    currentFrame_.x =  currentFrame_.x % nFrames_.x;
+    }
+
+
+//-----------------------------------------------------------------------------
+sf::IntRect Animation::getCurrentFrame () const
+    {
+    return sf::IntRect (currentFrame_.x * pixFrameSize_.x,
+                        currentFrame_.y * pixFrameSize_.y,
+                                          pixFrameSize_.x,
+                                          pixFrameSize_.y);
+    }
+//}
+//-----------------------------------------------------------------------------
 
 
 //{Sprite::--------------------------------------------------------------------
@@ -153,7 +219,7 @@ Sprite::Sprite (const Sprite& sprite) :
     {}
 
 //=============================================================================
-void Sprite::draw ()
+void Sprite::draw (vector offset = 0, 0)
     {
 
     if (sprite_.getTexture()->getSize() != sf::Vector2u (0, 0))
@@ -274,40 +340,125 @@ Animation Sprite::getAnimation (int animationId)
 //-----------------------------------------------------------------------------
 
 
-//{Animation::-----------------------------------------------------------------
-Animation::Animation (iVector pixFrameSize,
-                      iVector nFrames,
-                      iVector pixFrameOffset) :
-    currentFrame_ ( iVector (0, 0) ),      //1st frame 1st row /cap/
+//{LayerSprite::---------------------------------------------------------------
+LayerSprite::LayerSprite (std::string name,
+                          const sf::Texture& texture,
+                          Vector pos,
+                          sf::RenderWindow* windowp) :
 
-    pixFrameSize_ (pixFrameSize),
-    nFrames_ (nFrames),
-    pixFrameOffset_ (pixFrameOffset)
+    name_ (name),
+    pos_(pos),
+    windowp_(windowp),
     {
-
+    layers_.push_back(Sprite ("L0",          //def layer
+                              texture,
+                              Vector (0, 0), //local cords/ or offset
+                              windowp));
     }
+
 
 
 //=============================================================================
-void Animation::update ()
+void LayerSprite::draw ()
     {
-    currentFrame_.x++;
-                                       //плюс тот факт, что это так или не так
-    currentFrame_.y = (currentFrame_.y + (currentFrame_.x >= nFrames_.x)) % nFrames_.y;
-    currentFrame_.x =  currentFrame_.x % nFrames_.x;
+    int textureExists = 1;
+    for (auto& layer : layers_)
+        textureExists *= (layer.getTexture()->getSize() == sf::Vector2u (0, 0))
+
+
+    if (!textureExists)
+        {
+        deleteLayers();
+
+        addLayer(Vector (0, 0), AL::Global::DefaultSprite.getAnimation(0));
+        setTexture  (*AL::Global::DefaultSprite.getTexture());
+        getLayer(0)->setPosition(pos_);
+        }
+
+    for (auto& layer : layers_)
+            layer.draw(pos_);  //offset coords/ to draw in global, not in local coords
+    }
+
+
+
+
+//-----------------------------------------------------------------------------
+void LayerSprite::deleteLayers ()
+    {
+    layers_.clear();
+    }
+
+
+
+
+//-----------------------------------------------------------------------------
+void LayerSprite::addLayer (int localPos, AL::Animation animation)
+    {
+    AL::Sprite newLayer(std::string ("L") + std::to_string(layers_.size),
+                        getTexture(),
+                        localPos,
+                        windowp_);
+    newLayer.addAnimation (animation);
+    layers_.push_back(newLayer);
     }
 
 
 //-----------------------------------------------------------------------------
-sf::IntRect Animation::getCurrentFrame () const
+void LayerSprite::setPosition (const Vector& pos)
     {
-    return sf::IntRect (currentFrame_.x * pixFrameSize_.x,
-                        currentFrame_.y * pixFrameSize_.y,
-                                          pixFrameSize_.x,
-                                          pixFrameSize_.y);
+    pos_ = pos;
     }
+
+
+//-----------------------------------------------------------------------------
+void LayerSprite::setTexture (const sf::Texture& texture)
+    {
+    assert (!layers_.size());  //idk the solution^ letitbe this way/// so if u set the texture while having some layers drawing will broke
+    for (auto& layer : layers_)
+        layer.setTexture (texture);
+    }
+
+
+//-----------------------------------------------------------------------------
+void LayerSprite::setRenderWindow (sf::RenderWindow* windowp)
+    {
+    windowp_ = windowp;
+    }
+
+
+
+
+//-----------------------------------------------------------------------------
+const sf::Texture* LayerSprite::getTexture ()
+    {
+    return (layers_.size)? layers_.at(rand() % layers_.size).getTexture() : nullptr;  //maid for fun/ as each layer has the same texture by design
+    }
+
+
+//-----------------------------------------------------------------------------
+Vector LayerSprite::getPosition ()
+    {
+    return pos_;
+    }
+
+
+//-----------------------------------------------------------------------------
+sf::RenderWindow* LayerSprite::getWindowp ()
+    {
+    return windowp_;
+    }
+
+
+//-----------------------------------------------------------------------------
+AL::Sprite* LayerSprite::getLayer (int Id)
+    {
+    return layers_.at(Id);
+    }
+
+
 //}
 //-----------------------------------------------------------------------------
+
 
 
 //}
@@ -317,6 +468,27 @@ sf::IntRect Animation::getCurrentFrame () const
 //{Functions-------------------------------------------------------------------
 
 void ExampleTest ()
+    {
+    sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
+    AL::Global::RenderWindow = &win;
+    sf::Texture t;
+    t.loadFromFile ("example.jpg");
+
+    AL::Sprite s ("imya", t, Vector (400, 400), &win);
+    s.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
+
+    while(!GetAsyncKeyState(VK_SPACE))
+        {
+        win.clear();
+        s.draw();
+
+        win.display();
+        Sleep(20);
+        }
+
+    }
+
+void nExampleTest ()
     {
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
     AL::Global::RenderWindow = &win;
