@@ -66,6 +66,7 @@ class      Sprite : public ISprite
                      sf::RenderWindow* windowp);
 
     virtual void draw () override;
+            void draw (Vector offset);
 
     virtual void setPosition     (const Vector& pos)          override;
     virtual void setTexture      (const sf::Texture& texture) override;
@@ -116,11 +117,11 @@ class LayerSprite : public ISprite
     virtual const sf::Texture* getTexture     ()              override;
     virtual Vector             getPosition    ()              override;
 
-        private::
+        private:
             void deleteLayers();  //itl caus trablz when u try to create layers after deleting it as will be no tex
-        public::
-            void addLayer (AL::Sprite layer);
-            AL::Sprite* getLayer ();
+        public:
+            void addLayer (Vector LocalPos, Animation animation);
+            AL::Sprite* getLayer (int Id);
 
     LayerSprite& operator = (const Sprite& that) = delete;
     };
@@ -183,9 +184,9 @@ sf::IntRect Animation::getCurrentFrame () const
 
 //{Sprite::--------------------------------------------------------------------
 Sprite::Sprite (std::string name,
-                const sf::Texture& texture,
-                Vector pos,
-                sf::RenderWindow* windowp) :
+                sf::RenderWindow* windowp,
+                sf::Texture* texture,
+                Vector pos) :
 
     name_ (name),
     sprite_ ( sf::Sprite (texture, sf::IntRect()) ),  //empty
@@ -194,6 +195,7 @@ Sprite::Sprite (std::string name,
     animations_ (),
     animationId_ (0)
     {
+    assert (windowp);
     sprite_.setPosition(pos);
     }
 
@@ -219,17 +221,16 @@ Sprite::Sprite (const Sprite& sprite) :
     {}
 
 //=============================================================================
-void Sprite::draw (vector offset = 0, 0)
+void Sprite::draw ()
     {
-
-    if (sprite_.getTexture()->getSize() != sf::Vector2u (0, 0))
+    if (sprite_.getTexture())
         {
         if (animations_.size())
             {
             Animation& animation = animations_.at(animationId_);
 
             sprite_.setTextureRect (animation.getCurrentFrame ());
-            animation.update();
+            animation.update();                                                    //built-in update
             }
         else                                                                         //SOO AMAZING FN IT CALS ITSELF BUT WORKS
             {
@@ -251,9 +252,20 @@ void Sprite::draw (vector offset = 0, 0)
 
 
 //-----------------------------------------------------------------------------
+void Sprite::draw (Vector offset)
+    {
+    sprite_.move(offset);
+
+    draw ();
+
+    sprite_.move(-offset);
+    }
+
+
+//-----------------------------------------------------------------------------
 void Sprite::setPosition (const Vector& pos)
     {
-    pos_ = pos;
+    pos_ = pos;   //syncing
     sprite_.setPosition (pos_);
     }
 
@@ -348,7 +360,7 @@ LayerSprite::LayerSprite (std::string name,
 
     name_ (name),
     pos_(pos),
-    windowp_(windowp),
+    windowp_(windowp)
     {
     layers_.push_back(Sprite ("L0",          //def layer
                               texture,
@@ -363,18 +375,16 @@ void LayerSprite::draw ()
     {
     int textureExists = 1;
     for (auto& layer : layers_)
-        textureExists *= (layer.getTexture()->getSize() == sf::Vector2u (0, 0))
+        textureExists *= (layer.getTexture()->getSize() != sf::Vector2u (0, 0));
 
 
     if (!textureExists)
         {
         deleteLayers();
-
-        addLayer(Vector (0, 0), AL::Global::DefaultSprite.getAnimation(0));
         setTexture  (*AL::Global::DefaultSprite.getTexture());
+        addLayer(Vector (0, 0), AL::Global::DefaultSprite.getAnimation(0));
         getLayer(0)->setPosition(pos_);
         }
-
     for (auto& layer : layers_)
             layer.draw(pos_);  //offset coords/ to draw in global, not in local coords
     }
@@ -392,10 +402,10 @@ void LayerSprite::deleteLayers ()
 
 
 //-----------------------------------------------------------------------------
-void LayerSprite::addLayer (int localPos, AL::Animation animation)
+void LayerSprite::addLayer (Vector localPos, AL::Animation animation)  //offset in fact
     {
-    AL::Sprite newLayer(std::string ("L") + std::to_string(layers_.size),
-                        getTexture(),
+    AL::Sprite newLayer(std::string ("L") + std::to_string(layers_.size()),
+                        getTexture()? *getTexture() : sf::Texture(),
                         localPos,
                         windowp_);
     newLayer.addAnimation (animation);
@@ -431,7 +441,7 @@ void LayerSprite::setRenderWindow (sf::RenderWindow* windowp)
 //-----------------------------------------------------------------------------
 const sf::Texture* LayerSprite::getTexture ()
     {
-    return (layers_.size)? layers_.at(rand() % layers_.size).getTexture() : nullptr;  //maid for fun/ as each layer has the same texture by design
+    return (layers_.size())? layers_.at(rand() % layers_.size()).getTexture() : nullptr;  //maid for fun/ as each layer has the same texture by design
     }
 
 
@@ -452,7 +462,7 @@ sf::RenderWindow* LayerSprite::getWindowp ()
 //-----------------------------------------------------------------------------
 AL::Sprite* LayerSprite::getLayer (int Id)
     {
-    return layers_.at(Id);
+    return &layers_.at(Id);
     }
 
 
@@ -493,10 +503,10 @@ void nExampleTest ()
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
     AL::Global::RenderWindow = &win;
     sf::Texture t;
-    t.loadFromFile ("example.jpg");
+    t.loadFromFile ("exsssample.jpg");
 
-    AL::Sprite s ("imya", t, Vector (400, 400), &win);
-    s.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
+    AL::LayerSprite s ("imya", t, Vector (400, 400), &win);
+    s.getLayer(0)->addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
 
     while(!GetAsyncKeyState(VK_SPACE))
         {
@@ -524,7 +534,7 @@ int main()
                                             iVector (2, 1),
                                             iVector (0, 0) );
     #ifdef DEBUG
-    ExampleTest();
+    nExampleTest();
     #else
     UserMain();
     #endif
