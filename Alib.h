@@ -195,8 +195,10 @@ Sprite::Sprite (std::string name,
     animations_ (),
     animationId_ (0)
     {
-    if (texture) sprite_.setTexture (*texture);
-                 sprite_.setPosition(pos);
+    if (texture && texture->getSize().x
+                && texture->getSize().y)   sprite_.setTexture (*texture);
+    sprite_.setPosition(pos);
+
     assert (windowp);
     }
 
@@ -206,13 +208,13 @@ Sprite::Sprite (std::string name) :
     name_ (name),
     sprite_ (),
     pos_ (0, 0),
-    windowp_ (nullptr),
+    windowp_ (Global::RenderWindow),
     animations_ (),
     animationId_ (0)
     {}
-
-//-----------------------------------------------------------------------------
-Sprite::Sprite (const Sprite& sprite) :
+                                                                                                   //  i am coding all the day
+//-----------------------------------------------------------------------------                    //  save me plz from feeling pai
+Sprite::Sprite (const Sprite& sprite) :                                                            //  n
     name_        (sprite.name_),
     sprite_      (sprite.sprite_),
     pos_         (sprite.pos_),
@@ -224,7 +226,7 @@ Sprite::Sprite (const Sprite& sprite) :
 //=============================================================================
 void Sprite::draw ()
     {
-    if (sprite_.getTexture())
+    if (getTexture())
         {
         if (animations_.size())
             {
@@ -242,9 +244,9 @@ void Sprite::draw ()
         }
     else
         {
+        assert (0); //debug
         addAnimation (AL::Global::DefaultSprite.getAnimation(0));
         setAnimationId (int (animations_.size() - 1));
-        setRenderWindow (AL::Global::RenderWindow);
         setTexture  (AL::Global::DefaultSprite.getTexture());
         draw();
         }
@@ -274,6 +276,7 @@ void Sprite::setPosition (const Vector& pos)
 //-----------------------------------------------------------------------------
 void Sprite::setTexture (const sf::Texture* texture)
     {
+    $sg; printf ("texture %d \n", texture != nullptr);
     sprite_.setTexture (*texture);
     }
 
@@ -374,17 +377,25 @@ LayerSprite::LayerSprite (std::string name,
 //=============================================================================
 void LayerSprite::draw ()
     {
-    bool textureExists = 1;
+    bool textureExists = true;
     for (auto& layer : layers_)
+        {
+        //printf ("textureExists %d   ", textureExists);
         textureExists &= (layer.getTexture() != nullptr);
+
+        //printf ("layer.getTexture()  %d\n", getTexture() != nullptr);
+        }
 
 
     if (!textureExists)
         {
         deleteLayers();
-        setTexture  (AL::Global::DefaultSprite.getTexture());
         addLayer(Vector (0, 0), AL::Global::DefaultSprite.getAnimation(0));
-        getLayer(0)->setPosition(pos_);
+
+
+        setTexture  (AL::Global::DefaultSprite.getTexture());
+
+
         }
     for (auto& layer : layers_)
             layer.draw(pos_);  //offset coords/ to draw in global, not in local coords
@@ -407,7 +418,7 @@ void LayerSprite::addLayer (Vector localPos, AL::Animation animation)  //offset 
     {
     AL::Sprite newLayer(std::string ("L") + std::to_string(layers_.size()),
                         windowp_,
-                        getTexture(),
+                        (layers_.size())? getTexture() : nullptr,
                         localPos);
     newLayer.addAnimation (animation);
     layers_.push_back(newLayer);
@@ -424,7 +435,7 @@ void LayerSprite::setPosition (const Vector& pos)
 //-----------------------------------------------------------------------------
 void LayerSprite::setTexture (const sf::Texture* texture)
     {
-    assert (!layers_.size());  //idk the solution^ letitbe this way/// so if u set the texture while having some layers drawing will broke
+    $sg; printf ("texture %d\n", texture != nullptr);
     for (auto& layer : layers_)
         layer.setTexture (texture);
     }
@@ -442,8 +453,9 @@ void LayerSprite::setRenderWindow (sf::RenderWindow* windowp)
 //-----------------------------------------------------------------------------
 const sf::Texture* LayerSprite::getTexture () const
     {
-    return (layers_.size())? layers_.at(rand() % layers_.size()).getTexture() : nullptr;  //maid for fun/ as each layer has the same texture by design
-    }
+    return (layers_.size())? layers_.at(rand() % layers_.size()).getTexture() : ({assert(!"cocat', y tebya cloyov net"); nullptr;}); //Gnu extension for c++
+    //maid for fun/ as each layer has the same texture by design                                                                         //not to use in msvc
+    }                                                                                                                                        //compiler specific
 
 
 //-----------------------------------------------------------------------------
@@ -504,7 +516,8 @@ void nExampleTest ()
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
     AL::Global::RenderWindow = &win;
     sf::Texture t;
-    t.loadFromFile ("exsssample.jpg");
+    t.loadFromFile ("exfffample.jpg");
+
 
     AL::LayerSprite s ("imya", &win, &t, Vector (400, 400));
     s.getLayer(0)->addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
@@ -555,5 +568,19 @@ int main()
         //update()/пересчитывать относительные координаты спрайтов/
 
 
+            //TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
+            //TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO make draw() const, remoove the texture magic into constructors
+                                                                                                                                                              //and setters
+//TODO прийти к одному типу: у меня, что касается онемацций, когда добавляется онемацция и вибирается, собсна; а у слоев, все просто удаляется, и на прахе создается кот
+//к слову, сделать функцию able/disable слой в принципе вещь нужная
 
 
+//gnu specific:::
+// for (..;..;..)
+// {
+// if (!fn()) break;
+// fn() || ({break; 0;});
+// fn() || BREAK;  <-- define
+
+//         делаем брейк выражением, чтобы его можно было подставлять в лог выражения
+// }          так то это оператор/неззя/

@@ -578,7 +578,7 @@ int main ()
             s2.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
 
             SwitchButton butt ("Button",
-                                AL::Sprite ("main::s", &renderWindow, &texture, Vector (0, 0)),
+                                AL::Sprite ("main::s"), //forgotten texture
                                 Vector (400, 400));
             SwitchButton but  ("Button2",
                                 s2,
