@@ -53,6 +53,8 @@ class      Sprite : public ISprite
     Vector pos_;
     sf::RenderWindow* windowp_;
 
+    bool status_;
+
     std::vector <Animation> animations_;
     int animationId_;
 
@@ -71,6 +73,7 @@ class      Sprite : public ISprite
     virtual void setPosition     (const Vector& pos)          override;
     virtual void setTexture      (const sf::Texture* texture) override;
     virtual void setRenderWindow (sf::RenderWindow* windowp)  override;
+            void setEnable (bool status);
             void setAnimationId  (int animationId);
 
 
@@ -113,15 +116,15 @@ class LayerSprite : public ISprite
     virtual void setTexture      (const sf::Texture* texture) override;
     virtual void setRenderWindow (sf::RenderWindow* windowp)  override;
 
+            void addLayer (Vector LocalPos, Animation animation);
+            void enableLayer  (int ID, bool status);
+            void enableLayers         (bool status);
+
     virtual sf::RenderWindow*  getWindowp     ()              override;
     virtual const sf::Texture* getTexture     ()  const       override;
     virtual Vector             getPosition    ()              override;
 
-        private:
-            void deleteLayers();  //itl caus trablz when u try to create layers after deleting it as will be no tex
-        public:
-            void addLayer (Vector LocalPos, Animation animation);
-            AL::Sprite* getLayer (int Id);
+                   AL::Sprite* getLayer (int Id);
 
     LayerSprite& operator = (const Sprite& that) = delete;
     };
@@ -173,8 +176,8 @@ void Animation::update ()
 //-----------------------------------------------------------------------------
 sf::IntRect Animation::getCurrentFrame () const
     {
-    return sf::IntRect (currentFrame_.x * pixFrameSize_.x,
-                        currentFrame_.y * pixFrameSize_.y,
+    return sf::IntRect (currentFrame_.x * pixFrameSize_.x + pixFrameOffset_.x,
+                        currentFrame_.y * pixFrameSize_.y + pixFrameOffset_.y,
                                           pixFrameSize_.x,
                                           pixFrameSize_.y);
     }
@@ -192,6 +195,7 @@ Sprite::Sprite (std::string name,
     sprite_ (),  //empty
     pos_(pos),
     windowp_(windowp),
+    status_ (true),
     animations_ (),
     animationId_ (0)
     {
@@ -209,6 +213,7 @@ Sprite::Sprite (std::string name) :
     sprite_ (),
     pos_ (0, 0),
     windowp_ (Global::RenderWindow),
+    status_ (true),
     animations_ (),
     animationId_ (0)
     {}
@@ -219,6 +224,7 @@ Sprite::Sprite (const Sprite& sprite) :                                         
     sprite_      (sprite.sprite_),
     pos_         (sprite.pos_),
     windowp_     (sprite.windowp_),
+    status_      (sprite.status_),
     animations_  (sprite.animations_),
     animationId_ (sprite.animationId_)
     {}
@@ -226,42 +232,49 @@ Sprite::Sprite (const Sprite& sprite) :                                         
 //=============================================================================
 void Sprite::draw ()
     {
-    if (getTexture())
-        {
-        if (animations_.size())
-            {
-            Animation& animation = animations_.at(animationId_);
+    if (!status_) return;
 
-            sprite_.setTextureRect (animation.getCurrentFrame ());
-            animation.update();                                                    //built-in update
-            }
-        else                                                                         //SOO AMAZING FN IT CALS ITSELF BUT WORKS
-            {
-            sprite_.setTextureRect ( AllTexture(*sprite_.getTexture()) );
-            }
-
-        windowp_->draw(sprite_);
-        }
-    else
+    if (!getTexture())
         {
-        assert (0); //debug
         addAnimation (AL::Global::DefaultSprite.getAnimation(0));
         setAnimationId (int (animations_.size() - 1));
         setTexture  (AL::Global::DefaultSprite.getTexture());
-        draw();
         }
-    }
 
+
+    if (animations_.size())
+        {
+        Animation& animation = animations_.at(animationId_);
+
+        sprite_.setTextureRect (animation.getCurrentFrame ());
+        animation.update();                                                    //built-in update
+        }
+    else
+        {
+        sprite_.setTextureRect ( AllTexture(*sprite_.getTexture()) );
+        }
+
+    windowp_->draw(sprite_);
+    }
 
 
 //-----------------------------------------------------------------------------
 void Sprite::draw (Vector offset)
     {
+    if (!status_) return;
+
     sprite_.move(offset);
-
     draw ();
-
     sprite_.move(-offset);
+    }
+
+
+
+
+//-----------------------------------------------------------------------------
+void Sprite::setEnable (bool status)
+    {
+    status_ = status;
     }
 
 
@@ -380,34 +393,21 @@ void LayerSprite::draw ()
     bool textureExists = true;
     for (auto& layer : layers_)
         {
-        //printf ("textureExists %d   ", textureExists);
         textureExists &= (layer.getTexture() != nullptr);
-
-        //printf ("layer.getTexture()  %d\n", getTexture() != nullptr);
         }
 
 
     if (!textureExists)
         {
-        deleteLayers();
+        enableLayers(false);
+
         addLayer(Vector (0, 0), AL::Global::DefaultSprite.getAnimation(0));
-
-
         setTexture  (AL::Global::DefaultSprite.getTexture());
 
-
         }
+
     for (auto& layer : layers_)
-            layer.draw(pos_);  //offset coords/ to draw in global, not in local coords
-    }
-
-
-
-
-//-----------------------------------------------------------------------------
-void LayerSprite::deleteLayers ()
-    {
-    layers_.clear();
+        layer.draw(pos_);  //offset coords/ to draw in global, not in local coords
     }
 
 
@@ -418,11 +418,28 @@ void LayerSprite::addLayer (Vector localPos, AL::Animation animation)  //offset 
     {
     AL::Sprite newLayer(std::string ("L") + std::to_string(layers_.size()),
                         windowp_,
-                        (layers_.size())? getTexture() : nullptr,
+                        getTexture(),
                         localPos);
     newLayer.addAnimation (animation);
     layers_.push_back(newLayer);
     }
+
+
+//-----------------------------------------------------------------------------
+void LayerSprite::enableLayer (int ID, bool status)
+    {
+    layers_.at(ID).setEnable(status);
+    }
+
+
+//-----------------------------------------------------------------------------
+void LayerSprite::enableLayers (bool status)
+    {
+    for (auto& layer : layers_)
+        layer.setEnable(status);
+    }
+
+
 
 
 //-----------------------------------------------------------------------------
@@ -436,6 +453,7 @@ void LayerSprite::setPosition (const Vector& pos)
 void LayerSprite::setTexture (const sf::Texture* texture)
     {
     $sg; printf ("texture %d\n", texture != nullptr);
+
     for (auto& layer : layers_)
         layer.setTexture (texture);
     }
@@ -516,11 +534,12 @@ void nExampleTest ()
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
     AL::Global::RenderWindow = &win;
     sf::Texture t;
-    t.loadFromFile ("exfffample.jpg");
+    t.loadFromFile ("ez.png");
 
 
     AL::LayerSprite s ("imya", &win, &t, Vector (400, 400));
-    s.getLayer(0)->addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
+    s.getLayer(0)->addAnimation(iVector (128, 128), iVector (9, 1), iVector (0, 0));
+    //s.addLayer (Vector (-550, 0), AL::Animation (iVector (550, 325), iVector (15, 1), iVector (550, 0)) );
 
     while(!GetAsyncKeyState(VK_SPACE))
         {
@@ -571,7 +590,7 @@ int main()
             //TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
             //TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO make draw() const, remoove the texture magic into constructors
                                                                                                                                                               //and setters
-//TODO прийти к одному типу: у меня, что касается онемацций, когда добавляется онемацция и вибирается, собсна; а у слоев, все просто удаляется, и на прахе создается кот
+//TODO прийти к одному типу: у меня, шо касается онемацций, когда добавляется онемацция и вибирается, собсна; а у слоев, все просто удаляется, и на прахе создается кот
 //к слову, сделать функцию able/disable слой в принципе вещь нужная
 
 
@@ -584,3 +603,10 @@ int main()
 
 //         делаем брейк выражением, чтобы его можно было подставлять в лог выражения
 // }          так то это оператор/неззя/
+
+
+
+
+
+
+
