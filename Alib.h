@@ -1,4 +1,5 @@
-//ANIMATION LIB  vLast
+//ANIMATION LIB v 1.1.0
+
 #include <sfml/graphics.hpp>
 #include "AlibOperators.hpp"
 #include <windows.h>
@@ -37,6 +38,7 @@ struct    ISprite
     virtual void draw () = 0;
 
     virtual void setPosition     (const Vector& pos)          = 0;
+    virtual void move            (const Vector& pos)          = 0;
     virtual void setTexture      (const sf::Texture* texture) = 0;
     virtual void setRenderWindow (sf::RenderWindow* windowp)  = 0;
 
@@ -72,6 +74,7 @@ class      Sprite : public ISprite
             void draw (Vector offset);
 
     virtual void setPosition     (const Vector& pos)          override;
+    virtual void move            (const Vector& pos)          override;
     virtual void setTexture      (const sf::Texture* texture) override;
     virtual void setRenderWindow (sf::RenderWindow* windowp)  override;
             void setEnable (bool status);
@@ -98,9 +101,11 @@ class      Sprite : public ISprite
 class LayerSprite : public ISprite
     {
     std::string name_;
-    Vector pos_;
+    Vector globalPos_;
     sf::RenderWindow* windowp_;
     const sf::Texture* texture_;
+
+    bool allTexturesValid_;
 
     std::vector <Sprite> layers_;
     //-------------------
@@ -115,19 +120,25 @@ class LayerSprite : public ISprite
     virtual void draw () override;
 
     virtual void setPosition     (const Vector& pos)          override;
+    virtual void move            (const Vector& pos)          override;
     virtual void setTexture      (const sf::Texture* texture) override;
     virtual void setRenderWindow (sf::RenderWindow* windowp)  override;
 
-            void addLayer (Vector localPos);
-            void addLayer (Vector LocalPos, Animation animation);
             void enableLayer  (int ID, bool status);
             void enableLayers         (bool status);
+            void addErrLayer ();
+            bool addLayer (Vector LocalPos,
+                           AL::Animation animation     = AL::Animation (iVector (0, 0),
+                                                                        iVector (0, 0),    //flag
+                                                                        iVector (0, 0)),
+                           const sf::Texture*  texture = nullptr);
 
     virtual sf::RenderWindow*  getWindowp     ()              override;
     virtual const sf::Texture* getTexture     ()  const       override;
     virtual Vector             getPosition    ()              override;
 
                    AL::Sprite* getLayer (int Id);
+             const AL::Sprite* getLayer (int Id) const;
 
     LayerSprite& operator = (const Sprite& that) = delete;
     };
@@ -140,6 +151,25 @@ const int FLAGVAL = -100500;    //TODO improve sprite.draw() -> sprite.draw (Vec
 Sprite DefaultSprite ("AJIJIO_ETO_TEXHUK_IIAshA?\nY HAC TYT TEXHUKA HE IIAshET!");
 sf::RenderWindow *RenderWindow = nullptr;
 }
+
+//{operators-------------------------------------------------------------------
+bool operator == (const AL::Animation& left, const AL::Animation& right)
+    {
+    return (left.pixFrameSize_   == right.pixFrameSize_ &&
+            left.nFrames_        == right.nFrames_      &&
+            left.pixFrameOffset_ == right.pixFrameOffset_);
+    }
+
+
+//-----------------------------------------------------------------------------
+bool operator != (const AL::Animation& left, const AL::Animation& right)
+    {
+    return !(left == right);
+    }
+
+
+//}
+//-----------------------------------------------------------------------------
 
 
 //}
@@ -184,6 +214,7 @@ sf::IntRect Animation::getCurrentFrame () const
                                           pixFrameSize_.x,
                                           pixFrameSize_.y);
     }
+
 //}
 //-----------------------------------------------------------------------------
 
@@ -294,6 +325,13 @@ void Sprite::setPosition (const Vector& pos)
 
 
 //-----------------------------------------------------------------------------
+void Sprite::move (const Vector& pos)
+    {
+    pos_ += pos;
+    }
+
+
+//-----------------------------------------------------------------------------
 void Sprite::setTexture (const sf::Texture* texture)
     {
     $sg; printf ("texture %d \n", texture != nullptr);
@@ -392,21 +430,25 @@ Animation Sprite::getAnimation (int animationId)
 LayerSprite::LayerSprite (std::string name,
                           sf::RenderWindow* windowp,
                           const sf::Texture* texture,
-                          Vector pos) :
+                          Vector globalPos) :
 
     name_ (name),
-    pos_(pos),
+    globalPos_(globalPos),
     windowp_(windowp),
-    texture_(texture)
+    texture_(texture),
+    allTexturesValid_ (true)
     {
-    assert(windowp);
+    if (!windowp) assert(!"you can't miss renderwindow param");
 
-    if (texture)
-        addLayer (Vector (0, 0));
+    if (texture)        //background layer
+        layers_.push_back( AL::Sprite (std::string ("L") + std::to_string(layers_.size()),
+                                       windowp,
+                                       texture,
+                                       Vector (0, 0)) ); //local pos
     else
         {
-        addLayer(Vector (0, 0), AL::Global::DefaultSprite.getAnimation(0));
-        setTexture  (AL::Global::DefaultSprite.getTexture());
+        allTexturesValid_ = false;
+        addErrLayer ();
         }
     }
 
@@ -415,34 +457,58 @@ LayerSprite::LayerSprite (std::string name,
 //=============================================================================
 void LayerSprite::draw ()
     {
-
     for (auto& layer : layers_)
-        layer.draw(pos_);  //offset coords/ to draw in global, not in local coords
+        layer.draw(globalPos_);  //offset coords/ to draw in global, not in local coords
     }
 
 
 
 
 //-----------------------------------------------------------------------------
-void LayerSprite::addLayer (Vector localPos, AL::Animation animation /*, const sf::Texture texture*/)  //offset in fact
-    {
-    AL::Sprite newLayer(std::string ("L") + std::to_string(layers_.size()),
-                        windowp_,
-                        getTexture(),
-                        localPos);
-    newLayer.addAnimation (animation);
-    layers_.push_back(newLayer);
-    }
-
-
-//-----------------------------------------------------------------------------
-void LayerSprite::addLayer (Vector localPos)
+void LayerSprite::addErrLayer ()
     {
     layers_.push_back ( AL::Sprite (std::string ("L") + std::to_string(layers_.size()),
-                                   windowp_,
-                                   getTexture(),
-                                   localPos)    );
+                                    windowp_,
+                                    nullptr,
+                                    Vector (0, 0)) );
     }
+
+
+//-----------------------------------------------------------------------------
+bool LayerSprite::addLayer (Vector localPos, AL::Animation animation, const sf::Texture* texture)  //localPos is offset from background in fact
+    {
+
+    if (texture && !texture->getSize().x && !texture->getSize().y)
+        {
+
+        if (allTexturesValid_)
+            {
+            printf("fff");
+            allTexturesValid_ = false;
+            enableLayers (false);           //this sheet is for drawing one neat cat instead of all the crashed and valid layers
+            addErrLayer  ();
+            }
+        else
+            {
+
+            addErrLayer ();
+            getLayer(layers_.size() - 1)->setEnable(false);
+            }
+        return false;
+        }
+
+
+    AL::Sprite newLayer(std::string ("L") + std::to_string(layers_.size()),
+                        windowp_,
+                        (texture)? texture : getTexture(), //if one does not set the last param, the texture will be taken from the background
+                        localPos);
+    if (animation != AL::Animation (iVector (0, 0), iVector (0, 0), iVector (0, 0)) ) newLayer.addAnimation (animation);
+    if (!allTexturesValid_) newLayer.setEnable(false);
+    layers_.push_back(newLayer);
+
+    return true;
+    }
+
 
 
 //-----------------------------------------------------------------------------
@@ -465,7 +531,14 @@ void LayerSprite::enableLayers (bool status)
 //-----------------------------------------------------------------------------
 void LayerSprite::setPosition (const Vector& pos)
     {
-    pos_ = pos;
+    globalPos_ = pos;
+    }
+
+
+//-----------------------------------------------------------------------------
+void LayerSprite::move (const Vector& pos)
+    {
+    globalPos_ += pos;
     }
 
 
@@ -476,12 +549,12 @@ void LayerSprite::setTexture (const sf::Texture* texture)
 
     if (texture)
         for (auto& layer : layers_)
-            layer.setTexture (texture);
+            if (layer.getTexture() == getTexture()) layer.setTexture (texture);         //woooow
     else
         {
         enableLayers (false);
-        addLayer (Vector (0, 0), AL::Global::DefaultSprite.getAnimation(0));
-        setTexture  (AL::Global::DefaultSprite.getTexture());
+        allTexturesValid_ = false;
+        addErrLayer ();
         }
     }
 
@@ -498,14 +571,14 @@ void LayerSprite::setRenderWindow (sf::RenderWindow* windowp)
 //-----------------------------------------------------------------------------
 const sf::Texture* LayerSprite::getTexture () const
     {
-    return texture_;
+    return getLayer(0)->getTexture();
     }
 
 
 //-----------------------------------------------------------------------------
 Vector LayerSprite::getPosition ()
     {
-    return pos_;
+    return globalPos_;
     }
 
 
@@ -521,6 +594,14 @@ AL::Sprite* LayerSprite::getLayer (int Id)
     {
     return &layers_.at(Id);
     }
+
+
+//-----------------------------------------------------------------------------
+const AL::Sprite* LayerSprite::getLayer (int Id) const
+    {
+    return &layers_.at(Id);
+    }
+
 
 
 //}
@@ -560,15 +641,28 @@ void nExampleTest ()
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
     AL::Global::RenderWindow = &win;
     sf::Texture t;
+    sf::Texture ponytrash;
+    ponytrash.loadFromFile ("res/ANIMEGIRL.png");
     t.loadFromFile ("res/ez.png");
 
 
     AL::LayerSprite s ("imya", &win, &t, Vector (400, 400));
     s.getLayer(0)->addAnimation(iVector (128, 128), iVector (8, 1), iVector (0, 0));
-    //s.addLayer (Vector (-550, 0), AL::Animation (iVector (128, 128), iVector (7, 1), iVector (0, 0)) );
+    s.addLayer (Vector (-250, 0), AL::Animation (iVector (128, 160), iVector (9, 1), iVector (0, 0)), &ponytrash );
 
     while(!GetAsyncKeyState(VK_SPACE))
         {
+
+        Vector move (0, 0);
+
+        if (GetAsyncKeyState('W')) move.y = -10;
+        if (GetAsyncKeyState('A')) move.x = -10;
+        if (GetAsyncKeyState('S')) move.y =  10;
+        if (GetAsyncKeyState('D')) move.x =  10;
+
+
+        s.move (move);
+
         win.clear();
         s.draw();
 
@@ -608,17 +702,15 @@ int main()
 //-----------------------------------------------------------------------------
 
 
-//TODO  многоанимационный спрайт, то бишь массив спрайтов => слои, добавить слой()
-        //добавить анимацию на слой()
+/*poor description:
+sfml wrap
+drawable,
+animated,
+layered objects
 
-
-
-            //TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
-            //TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO make draw() const, remoove the texture magic into constructors
-                                                                                                                                                              //and setters
-//TODO прийти к одному типу: у меня, шо косаеццо онемацций, когда добавляеццо онемацция и вибираеццо, собсна; а у слоев, все просто удаляеццо, и на прахе евонноном создаеццо кот
-//к слову, сделать функцию able/disable слой в принципе вещь нужная
-
+v 1.1.0:: in LSprite first layer /created in constructor/ is background, LS::getTexture() and LS::setTexture() work with background texture
+you can create a layer with background texture, if not set the last param in LS::addLayer(...) /So you can create a layer with dif tex by setting the param/
+*/
 
 //gnu specific:::
 // for (..;..;..)
@@ -629,6 +721,7 @@ int main()
 
 //         делаем брейк выражением, чтобы его можно было подставлять в лог выражения
 // }          так то это оператор/неззя/
+
 
 
 
