@@ -574,11 +574,11 @@ int main ()
             sf::Texture tex;
             tex.loadFromFile("example.jpg");
 
-            AL::Sprite s2 ("main::s2", tex, Vector (0, 0), &renderWindow);
+            AL::Sprite s2 ("main::s2", &renderWindow, &tex, Vector (0, 0));
             s2.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
 
             SwitchButton butt ("Button",
-                                AL::Sprite ("main::s", texture, Vector (0, 0), &renderWindow),
+                                AL::Sprite ("main::s"), //forgotten texture
                                 Vector (400, 400));
             SwitchButton but  ("Button2",
                                 s2,
