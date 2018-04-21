@@ -1,4 +1,4 @@
-//ANIMATION LIB v 1.1.0
+//ANIMATION LIB v 1.1.2
 
 #include <sfml/graphics.hpp>
 #include "AlibOperators.hpp"
@@ -10,21 +10,36 @@
 namespace AL
 {/*Classes functions and prototypes*/
 //{Prototypes------------------------------------------------------------------
+namespace Global
+{
+const int FLAGVAL = -100500;
+long long CPUFrequency = 0;
+double    FPS = 25;
+}
 
 
 struct Animation
     {
-
     iVector currentFrame_;
 
     iVector pixFrameSize_;
     iVector nFrames_;
     iVector pixFrameOffset_;
 
+
+    int ticksPerFrame_;
+
+    private:
+
+    long long lastFrameChangeTime_;
+
+    public:
+
     //---------------------
     Animation (iVector pixFrameOffset,
                iVector pixFrameSize,
-               iVector nFrames);
+               iVector nFrames,
+               double FPS = AL::Global::FPS);
 
     sf::IntRect getCurrentFrame () const;
     void update ();
@@ -73,18 +88,20 @@ class      Sprite : public ISprite
     virtual void draw () override;
             void draw (Vector offset);
 
+
     virtual void setPosition     (const Vector& pos)          override;
     virtual void move            (const Vector& pos)          override;
     virtual void setTexture      (const sf::Texture* texture) override;
     virtual void setRenderWindow (sf::RenderWindow* windowp)  override;
-            void setEnable (bool status);
+            void setEnable       (bool status);             //TODO    virt?
             void setAnimationId  (int animationId);
 
 
             void addAnimation (Animation animation);
             void addAnimation (iVector frameSize,
                                iVector nFrames,
-                               iVector pixFrameOffset);
+                               iVector pixFrameOffset,
+                               double FPS = AL::Global::FPS);
 
 
     virtual sf::RenderWindow*  getWindowp     ()        override;
@@ -137,17 +154,15 @@ class LayerSprite : public ISprite
     virtual const sf::Texture* getTexture     ()  const       override;
     virtual Vector             getPosition    ()              override;
 
-                   AL::Sprite* getLayer (int Id);
-             const AL::Sprite* getLayer (int Id) const;
-
+                   AL::Sprite*     getLayer (int Id);
+             const AL::Sprite*     getLayer (int Id) const;
+                   AL::Sprite&  operator [] (int Id);
     LayerSprite& operator = (const Sprite& that) = delete;
     };
 
 
-
 namespace Global
 {
-const int FLAGVAL = -100500;    //TODO improve sprite.draw() -> sprite.draw (Vector pos = Vector(Fl, Fl)) {if (pos == v (f, f) ...} ...
 Sprite DefaultSprite ("AJIJIO_ETO_TEXHUK_IIAshA?\nY HAC TYT TEXHUKA HE IIAshET!");
 sf::RenderWindow *RenderWindow = nullptr;
 }
@@ -185,24 +200,35 @@ bool operator != (const AL::Animation& left, const AL::Animation& right)
 //{Animation::-----------------------------------------------------------------
 Animation::Animation (iVector pixFrameSize,
                       iVector nFrames,
-                      iVector pixFrameOffset) :
+                      iVector pixFrameOffset,
+                      double FPS) :
     currentFrame_ ( iVector (0, 0) ),      //1st frame 1st row /cap/
 
-    pixFrameSize_ (pixFrameSize),
-    nFrames_ (nFrames),
-    pixFrameOffset_ (pixFrameOffset)
-    {
+    pixFrameSize_   (pixFrameSize),
+    nFrames_        (nFrames),
+    pixFrameOffset_ (pixFrameOffset),
 
-    }
+    ticksPerFrame_       (AL::Global::CPUFrequency / FPS),
+    lastFrameChangeTime_ (0)
+    {}
 
 
 //=============================================================================
 void Animation::update ()
     {
-    currentFrame_.x++;
-                                       //плюс тот факт, что это так или не так
-    currentFrame_.y = (currentFrame_.y + (currentFrame_.x >= nFrames_.x)) % nFrames_.y;
-    currentFrame_.x =  currentFrame_.x % nFrames_.x;
+    LARGE_INTEGER ticksCounter = {{0}};
+    QueryPerformanceCounter (&ticksCounter);
+    long long time = ticksCounter.QuadPart;
+
+    if  (time - lastFrameChangeTime_ > ticksPerFrame_)  //FPS ctrl a lil bit
+        {
+        currentFrame_.x++;
+                                           //плюс тот факт, что это так или не так
+        currentFrame_.y = (currentFrame_.y + (currentFrame_.x >= nFrames_.x)) % nFrames_.y;
+        currentFrame_.x =  currentFrame_.x % nFrames_.x;
+
+        lastFrameChangeTime_ = time;
+        }
     }
 
 
@@ -248,7 +274,6 @@ Sprite::Sprite (std::string name,
         setTexture  (AL::Global::DefaultSprite.getTexture());    //default one
         }
     }
-
 
 //-----------------------------------------------------------------------------
 Sprite::Sprite (std::string name) :
@@ -377,11 +402,13 @@ void Sprite::addAnimation (Animation animation)
 //-----------------------------------------------------------------------------
 void Sprite::addAnimation (iVector pixFrameSize,
                            iVector nFrames,
-                           iVector pixFrameOffset)
+                           iVector pixFrameOffset,
+                           double FPS)
     {
     animations_.push_back (Animation (pixFrameSize,
                                       nFrames,
-                                      pixFrameOffset) );
+                                      pixFrameOffset,
+                                      FPS) );
     }
 
 
@@ -603,6 +630,12 @@ const AL::Sprite* LayerSprite::getLayer (int Id) const
     }
 
 
+//-----------------------------------------------------------------------------
+AL::Sprite& LayerSprite::operator [] (int Id)
+    {
+    return layers_.at(Id);
+    }
+
 
 //}
 //-----------------------------------------------------------------------------
@@ -638,7 +671,10 @@ void ExampleTest ()
 
 void nExampleTest ()
     {
+
     sf::RenderWindow win (sf::VideoMode (1000, 800), "test" );
+    win.setFramerateLimit(25);
+
     AL::Global::RenderWindow = &win;
     sf::Texture t;
     sf::Texture ponytrash;
@@ -647,7 +683,7 @@ void nExampleTest ()
 
 
     AL::LayerSprite s ("imya", &win, &t, Vector (400, 400));
-    s.getLayer(0)->addAnimation(iVector (128, 128), iVector (8, 1), iVector (0, 0));
+    s[0].addAnimation(iVector (128, 128), iVector (8, 1), iVector (0, 0), 5);
     s.addLayer (Vector (-250, 0), AL::Animation (iVector (128, 160), iVector (9, 1), iVector (0, 0)), &ponytrash );
 
     while(!GetAsyncKeyState(VK_SPACE))
@@ -667,7 +703,7 @@ void nExampleTest ()
         s.draw();
 
         win.display();
-        Sleep(20);
+        //Sleep(20);
         }
 
     }
@@ -677,6 +713,10 @@ void nExampleTest ()
 int UserMain();
 int main()
     {
+    LARGE_INTEGER freq = {{0}};
+    QueryPerformanceFrequency (&freq);
+    AL::Global::CPUFrequency = freq.QuadPart;
+
     sf::Texture defTexture;
     bool    load_succeeded = defTexture.loadFromFile("res/defTexture.jpg");
     assert (load_succeeded);
@@ -708,8 +748,14 @@ drawable,
 animated,
 layered objects
 
-v 1.1.0:: in LSprite first layer /created in constructor/ is background, LS::getTexture() and LS::setTexture() work with background texture
-you can create a layer with background texture, if not set the last param in LS::addLayer(...) /So you can create a layer with dif tex by setting the param/
+1.1.0   in LSprite first layer /created in constructor/ is background, LS::getTexture() and LS::setTexture() work with background texture
+        you can create a layer with background texture, if not set the last param in LS::addLayer(...) /So you can create a layer with dif tex by setting the param/
+
+1.1.1   operator [] for layers
+1.1.2   fps control     +LSprite::setFPS
+                        +Sprite::setFPS
+                        +Animation::setFPS
+
 */
 
 //gnu specific:::
