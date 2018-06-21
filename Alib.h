@@ -1,15 +1,15 @@
-//ANIMATION LIB v 1.1.2
+//ANIMATION LIB v 1.1.4
 
 #include <sfml/graphics.hpp>
 #include "AlibOperators.hpp"
 #include <windows.h>
 #include  <vector>
 
-#define DEBUG
+//#define DEBUG
 
 namespace AL
 {/*Classes functions and prototypes*/
-//{Prototypes------------------------------------------------------------------
+//{Definition------------------------------------------------------------------
 namespace Global
 {
 const int FLAGVAL = -100500;
@@ -50,6 +50,8 @@ struct    ISprite
     {
 
     //---------------------
+    virtual ~ISprite () {};
+
     virtual void draw () = 0;
 
     virtual void setPosition     (const Vector& pos)          = 0;
@@ -157,7 +159,7 @@ class LayerSprite : public ISprite
                    AL::Sprite*     getLayer (int Id);
              const AL::Sprite*     getLayer (int Id) const;
                    AL::Sprite&  operator [] (int Id);
-    LayerSprite& operator = (const Sprite& that) = delete;
+    LayerSprite& operator = (const LayerSprite& that) = delete;
     };
 
 
@@ -166,31 +168,67 @@ namespace Global
 Sprite DefaultSprite ("AJIJIO_ETO_TEXHUK_IIAshA?\nY HAC TYT TEXHUKA HE IIAshET!");
 sf::RenderWindow *RenderWindow = nullptr;
 }
+//}
+//-----------------------------------------------------------------------------
 
-//{operators-------------------------------------------------------------------
-bool operator == (const AL::Animation& left, const AL::Animation& right)
+
+//{stuff_fns-------------------------------------------------------------------
+
+void Draw (AL::Sprite&      sprite);
+void Draw (AL::Sprite&      sprite, Vector pos);
+
+void Draw (AL::LayerSprite& sprite);
+void Draw (AL::LayerSprite& sprite, Vector pos);
+
+bool operator == (const AL::Animation& left, const AL::Animation& right);
+bool operator != (const AL::Animation& left, const AL::Animation& right);
+void  ExampleTest ();
+void nExampleTest ();
+
+//}
+//=============================================================================
+//{external_fns----------------------------------------------------------------
+void Draw (AL::Sprite& sprite)
     {
-    return (left.pixFrameSize_   == right.pixFrameSize_ &&
-            left.nFrames_        == right.nFrames_      &&
-            left.pixFrameOffset_ == right.pixFrameOffset_);
+    sprite.draw();
     }
 
 
 //-----------------------------------------------------------------------------
-bool operator != (const AL::Animation& left, const AL::Animation& right)
+void Draw (AL::Sprite& sprite, Vector drawPos)
     {
-    return !(left == right);
+    Vector pos = sprite.getPosition ();
+
+    sprite.setPosition (drawPos);
+    sprite.draw();
+
+    sprite.setPosition (pos);
+    }
+
+
+
+//-----------------------------------------------------------------------------
+void Draw (AL::LayerSprite& sprite)
+    {
+    sprite.draw();
+    }
+
+
+//-----------------------------------------------------------------------------
+void Draw (AL::LayerSprite& sprite, Vector drawPos)
+    {
+    Vector pos = sprite.getPosition ();
+
+    sprite.setPosition (drawPos);
+    sprite.draw();
+
+    sprite.setPosition (pos);
     }
 
 
 //}
 //-----------------------------------------------------------------------------
 
-
-//}
-//-----------------------------------------------------------------------------
-
-//=======================================================================================
 
 
 //{Classes---------------------------------------------------------------------
@@ -208,7 +246,7 @@ Animation::Animation (iVector pixFrameSize,
     nFrames_        (nFrames),
     pixFrameOffset_ (pixFrameOffset),
 
-    ticksPerFrame_       (AL::Global::CPUFrequency / FPS),
+    ticksPerFrame_       (ROUND ( (double) AL::Global::CPUFrequency / FPS) ),
     lastFrameChangeTime_ (0)
     {}
 
@@ -270,7 +308,6 @@ Sprite::Sprite (std::string name,
 
     else
         {
-        addAnimation (AL::Global::DefaultSprite.getAnimation(0));
         setTexture  (AL::Global::DefaultSprite.getTexture());    //default one
         }
     }
@@ -285,7 +322,8 @@ Sprite::Sprite (std::string name) :
     status_ (true),
     animations_ (),
     animationId_ (0)
-    {}
+    {
+    }
                                                                                                    //  i am coding all the day
 //-----------------------------------------------------------------------------                    //  save me plz from feeling pai
 Sprite::Sprite (const Sprite& sprite) :                                                            //  n
@@ -302,11 +340,13 @@ Sprite::Sprite (const Sprite& sprite) :                                         
 //=============================================================================
 void Sprite::draw ()
     {
+    //printf ("   %s  ", name_.c_str());
     assert(texture_);
+    assert(texture_->getSize().x && texture_->getSize().y);
+    assert(windowp_);
     if (!status_) return;
 
-    if (animations_.size())
-        {
+    if (animations_.size())     {
         Animation& animation = animations_.at(animationId_);
 
         sprite_.setTextureRect (animation.getCurrentFrame ());
@@ -359,12 +399,13 @@ void Sprite::move (const Vector& pos)
 //-----------------------------------------------------------------------------
 void Sprite::setTexture (const sf::Texture* texture)
     {
-    $sg; printf ("texture %d \n", texture != nullptr);
-
+    $sg; printf ("texture existence = %d, size %s %s\n", texture != nullptr, (texture)? std::to_string (texture->getSize().x).c_str() : "???", (texture)? std::to_string (texture->getSize().y).c_str() : "???"); //Ones, one guy remooved printfs from his program, nobody'v seen him since then
 
     if (texture && texture->getSize().x && texture->getSize().y)
         {
         sprite_.setTexture (*texture);  //user's texture
+        printf ("mew");
+        texture_ = texture;
         }
 
     else
@@ -417,6 +458,7 @@ void Sprite::addAnimation (iVector pixFrameSize,
 //-----------------------------------------------------------------------------
 const sf::Texture* Sprite::getTexture () const
     {
+    assert(texture_ == sprite_.getTexture());
     return texture_;
     }
 
@@ -463,7 +505,8 @@ LayerSprite::LayerSprite (std::string name,
     globalPos_(globalPos),
     windowp_(windowp),
     texture_(texture),
-    allTexturesValid_ (true)
+    allTexturesValid_ (true),
+    layers_ ()
     {
     if (!windowp) assert(!"you can't miss renderwindow param");
 
@@ -519,7 +562,7 @@ bool LayerSprite::addLayer (Vector localPos, AL::Animation animation, const sf::
             {
 
             addErrLayer ();
-            getLayer(layers_.size() - 1)->setEnable(false);
+            getLayer( (int) layers_.size() - 1)->setEnable(false);
             }
         return false;
         }
@@ -575,8 +618,10 @@ void LayerSprite::setTexture (const sf::Texture* texture)
     $sg; printf ("texture %d\n", texture != nullptr);
 
     if (texture)
+        {
         for (auto& layer : layers_)
             if (layer.getTexture() == getTexture()) layer.setTexture (texture);         //woooow
+        }
     else
         {
         enableLayers (false);
@@ -644,6 +689,7 @@ AL::Sprite& LayerSprite::operator [] (int Id)
 
 //}
 //-----------------------------------------------------------------------------
+
 }
 
 //{Functions-------------------------------------------------------------------
@@ -678,13 +724,16 @@ void nExampleTest ()
     AL::Global::RenderWindow = &win;
     sf::Texture t;
     sf::Texture ponytrash;
+    sf::Texture te;
     ponytrash.loadFromFile ("res/ANIMEGIRL.png");
     t.loadFromFile ("res/ez.png");
+    te.loadFromFile ("res/example.png");
+
 
 
     AL::LayerSprite s ("imya", &win, &t, Vector (400, 400));
-    s[0].addAnimation(iVector (128, 128), iVector (8, 1), iVector (0, 0), 5);
-    s.addLayer (Vector (-250, 0), AL::Animation (iVector (128, 160), iVector (9, 1), iVector (0, 0)), &ponytrash );
+    s[0].addAnimation(iVector (128, 128), iVector (8, 1), iVector (0, 0), 2);
+    s.addLayer (Vector (32, 0), AL::Animation (iVector (128, 128), iVector (8, 8), iVector (0, 0), 9), &te );
 
     while(!GetAsyncKeyState(VK_SPACE))
         {
@@ -726,6 +775,8 @@ int main()
     AL::Global::DefaultSprite.addAnimation (iVector (defTexture.getSize().x/2, defTexture.getSize().y),
                                             iVector (2, 1),
                                             iVector (0, 0) );
+
+    assert(AL::Global::DefaultSprite.getTexture());
     #ifdef DEBUG
     nExampleTest();
     #else
@@ -734,6 +785,29 @@ int main()
 
     }
 #define main UserMain
+
+
+//{operators-------------------------------------------------------------------
+
+bool AL::operator == (const AL::Animation& left, const AL::Animation& right)
+    {
+    return (left.pixFrameSize_   == right.pixFrameSize_ &&
+            left.nFrames_        == right.nFrames_      &&
+            left.pixFrameOffset_ == right.pixFrameOffset_);
+    }
+
+
+//-----------------------------------------------------------------------------
+bool AL::operator != (const AL::Animation& left, const AL::Animation& right)
+    {
+    return !(left == right);
+    }
+
+
+//}
+//-----------------------------------------------------------------------------
+
+
 
 
 //}
@@ -756,8 +830,14 @@ layered objects
                         +Sprite::setFPS
                         +Animation::setFPS
 
+
+
+1.1.3 remooved warnings :>
+
+1.1.4 + 4 type of Draw(sprite)
 */
 
+//other stuff
 //gnu specific:::
 // for (..;..;..)
 // {

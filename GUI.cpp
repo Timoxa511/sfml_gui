@@ -1,4 +1,4 @@
-//v1
+ //v1
 #include "TXLib.h"
 
 //TODO    local cords according to upper/parent widgetWidget (const std::string& name,
@@ -25,7 +25,7 @@ namespace Global                                                                
     {                                                                                                       //
     int Count = 0;                                                                                          //
     Vector MouseCoordinateDeformationMultiplier (1, 1);                                                     //
-    const Vector OriginalWinSize (1000, 800);                                                               //
+    const Vector OriginalWinSize (1000.0, 800.0);                                                           //
     const Vector ScreenSize (GetSystemMetrics (SM_CXSCREEN), GetSystemMetrics (SM_CYSCREEN));               //
     }
 
@@ -569,17 +569,24 @@ int main ()
     AppWindow win (&renderWindow);
 
             sf::Texture texture;
-            texture.loadFromFile("byablo4ko.bmp");
+            texture.loadFromFile("res/byablo4ko.bmp");
 
             sf::Texture tex;
-            tex.loadFromFile("example.jpg");
+            tex.loadFromFile("res/example.jpg");
+
+
+            AL::Sprite s1 ("main::s1", &renderWindow, &texture, Vector (0, 0));
 
             AL::Sprite s2 ("main::s2", &renderWindow, &tex, Vector (0, 0));
             s2.addAnimation(iVector (128, 128), iVector (8, 8), iVector (0, 0));
 
+
             SwitchButton butt ("Button",
-                                AL::Sprite ("main::s"), //forgotten texture
+                                s1,
                                 Vector (400, 400));
+
+            printf("meow");
+
             SwitchButton but  ("Button2",
                                 s2,
                                 Vector (600, 600));
@@ -587,7 +594,8 @@ int main ()
             win.add (&butt);
             win.add (&but);
 
-    while (win.run())
+        //burzshua        //po-prolitarski
+    while (win.run() && !GetAsyncKeyState (VK_SPACE))
         {
         Sleep (50);
         }
