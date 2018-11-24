@@ -13,11 +13,6 @@
 
 //origin (pos_) is left top corner
 
-//{Defines---------------------------------------------------------------------
-
-//}
-//-----------------------------------------------------------------------------
-
 //{Prototypes------------------------------------------------------------------
 typedef sf::Vector2f     Vector;
 
@@ -160,7 +155,7 @@ struct EventMgr
 struct AppWindow
     {
     sf::RenderWindow* renderWindow_;
-    GroupWidget mainWidget_;
+    GroupWidget mainWidget_;                                     //~~~~~ stricter separation of drawing and events
     EventMgr eventMgr_;
     //------------------
     AppWindow (sf::RenderWindow* renderWindow);
@@ -309,12 +304,12 @@ bool EventMgr::eventModule ()
 //-----------------------------------------------------------------------------
 void EventMgr::drawModule ()
     {
-    renderWindow_->display ();
-    renderWindow_->clear ();
+    renderWindow_->display ();        //                     vipelit' otcuda
+    renderWindow_->clear ();          // not mgr but drawing
 
     toplvlWidget_->draw();
 
-    //for objs?
+    //for objs?      //~~~~
 
     }
 
@@ -594,7 +589,7 @@ int main ()
             win.add (&butt);
             win.add (&but);
 
-        //burzshua        //po-prolitarski
+          //burzshua        //po-prolitarski
     while (win.run() && !GetAsyncKeyState (VK_SPACE))
         {
         Sleep (50);
